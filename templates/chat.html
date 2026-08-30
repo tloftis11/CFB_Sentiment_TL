@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFB Sentiment Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { navy: { 900: '#0a0f1e', 800: '#111827', 700: '#1a2235', 600: '#1e2d45' } } } }
+    }
+  </script>
+  <style>
+    body { background: #0a0f1e; }
+    .chat-bubble-user { background: #1e3a5f; border-radius: 16px 16px 4px 16px; }
+    .chat-bubble-ai   { background: #1a2235; border-radius: 16px 16px 16px 4px; }
+    .chat-scroll { overflow-y: auto; scroll-behavior: smooth; }
+    .chat-scroll::-webkit-scrollbar { width: 4px; }
+    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+    .typing-dot { animation: bounce 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+    .suggestion-chip { cursor: pointer; transition: all 0.15s; }
+    .suggestion-chip:hover { background: #1e3a5f; border-color: #38bdf8; color: #e2e8f0; }
+    pre { background: #0f172a; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 0.8em; margin: 8px 0; }
+    code { font-family: 'Courier New', monospace; }
+    .prose p { margin-bottom: 8px; }
+    .prose ul { list-style: disc; padding-left: 20px; margin-bottom: 8px; }
+    .prose li { margin-bottom: 4px; }
+    .prose strong { color: #e2e8f0; }
+  </style>
+</head>
+<body class="text-slate-300 h-full flex flex-col" x-data="chat()" x-init="init()">
+
+  <!-- Nav -->
+  <nav class="border-b border-slate-800 bg-navy-800 shrink-0">
+    <div class="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🏈</span>
+        <span class="font-bold text-white tracking-tight text-lg">CFB Sentiment Rankings</span>
+      </div>
+      <div class="flex items-center gap-6 text-sm">
+        <a href="/" class="text-slate-400 hover:text-white transition-colors">Rankings</a>
+        <a href="/chat" class="text-white border-b-2 border-green-400 pb-1">Chat</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="flex-1 flex overflow-hidden max-w-screen-xl mx-auto w-full px-4 py-4 gap-4">
+
+    <!-- Left sidebar: quick reference -->
+    <div class="hidden lg:flex flex-col w-64 shrink-0 gap-3">
+
+      <div class="bg-navy-800 rounded-xl border border-slate-800 p-4">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-3">🔴 Most Overrated</div>
+        {% for r in overrated %}
+        <div
+          class="suggestion-chip rounded-lg border border-slate-700 px-3 py-2 mb-2 text-sm text-slate-400 bg-navy-700"
+          @click="sendSuggestion('Tell me about {{ r.school }} — why are they overrated and what does that mean for betting?')"
+        >
+          <div class="font-medium text-slate-200">{{ r.school }}</div>
+          <div class="text-xs text-red-400 mt-0.5">+{{ "%.1f" | format(r.divergence_score) }} divergence</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="bg-navy-800 rounded-xl border border-slate-800 p-4">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-3">🟢 Most Underrated</div>
+        {% for r in underrated %}
+        <div
+          class="suggestion-chip rounded-lg border border-slate-700 px-3 py-2 mb-2 text-sm text-slate-400 bg-navy-700"
+          @click="sendSuggestion('Tell me about {{ r.school }} — why are they underrated and what value do they offer?')"
+        >
+          <div class="font-medium text-slate-200">{{ r.school }}</div>
+          <div class="text-xs text-green-400 mt-0.5">{{ "%.1f" | format(r.divergence_score) }} divergence</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="bg-navy-800 rounded-xl border border-slate-800 p-4">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-3">💡 Try Asking</div>
+        <div class="space-y-2">
+          {% for q in [
+            "Which SEC teams have the biggest sentiment gap?",
+            "Which ranked teams are most overrated?",
+            "What are the best value teams in the Big Ten?",
+            "Compare Ohio State and Notre Dame sentiment",
+            "Which G5 teams are most underrated?"
+          ] %}
+          <div
+            class="suggestion-chip rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 bg-navy-700"
+            @click="sendSuggestion('{{ q }}')"
+          >{{ q }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Main chat area -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <!-- Messages -->
+      <div class="flex-1 chat-scroll rounded-xl border border-slate-800 bg-navy-800 p-4 mb-3" x-ref="chatbox">
+
+        <!-- Welcome message -->
+        <template x-if="messages.length === 0">
+          <div class="h-full flex flex-col items-center justify-center text-center px-8">
+            <div class="text-5xl mb-4">🏈</div>
+            <div class="text-xl font-semibold text-white mb-2">CFB Sentiment Analyst</div>
+            <div class="text-slate-400 text-sm max-w-md mb-6">
+              Ask me anything about the public sentiment rankings — which teams are overrated, underrated,
+              what the betting implications are, or how specific teams compare.
+            </div>
+            {% if not has_api_key %}
+            <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3 text-sm text-yellow-300">
+              ⚠️ Add <code class="bg-black/30 px-1 rounded">ANTHROPIC_API_KEY</code> to your .env file to enable chat.
+            </div>
+            {% endif %}
+            <!-- Mobile suggestions -->
+            <div class="flex flex-wrap gap-2 justify-center lg:hidden mt-2">
+              <div class="suggestion-chip bg-navy-700 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-slate-400"
+                @click="sendSuggestion('Which teams are most overrated right now?')">Most overrated teams?</div>
+              <div class="suggestion-chip bg-navy-700 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-slate-400"
+                @click="sendSuggestion('Which G5 teams are flying under the radar?')">G5 value plays?</div>
+              <div class="suggestion-chip bg-navy-700 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-slate-400"
+                @click="sendSuggestion('Summarize the biggest sentiment gaps in the SEC')">SEC gaps?</div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Message list -->
+        <template x-for="(msg, i) in messages" :key="i">
+          <div :class="msg.role === 'user' ? 'flex justify-end mb-4' : 'flex justify-start mb-4'">
+            <div
+              :class="msg.role === 'user' ? 'chat-bubble-user text-slate-200 max-w-[80%]' : 'chat-bubble-ai text-slate-300 max-w-[90%]'"
+              class="px-4 py-3 text-sm"
+            >
+              <div x-show="msg.role === 'assistant'" class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-medium text-green-400">CFB Analyst</span>
+              </div>
+              <div class="prose" x-html="renderMarkdown(msg.content)"></div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Typing indicator -->
+        <div x-show="loading" class="flex justify-start mb-4">
+          <div class="chat-bubble-ai px-4 py-3">
+            <div class="flex gap-1 items-center">
+              <div class="typing-dot w-2 h-2 bg-slate-500 rounded-full"></div>
+              <div class="typing-dot w-2 h-2 bg-slate-500 rounded-full"></div>
+              <div class="typing-dot w-2 h-2 bg-slate-500 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Input -->
+      <div class="flex gap-2 shrink-0">
+        <textarea
+          x-model="input"
+          x-ref="inputbox"
+          @keydown.enter.prevent="if (!$event.shiftKey) send()"
+          placeholder="Ask about team sentiment, betting implications, matchups..."
+          rows="1"
+          :disabled="loading"
+          class="flex-1 bg-navy-700 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:border-slate-500 disabled:opacity-50"
+          style="min-height:48px; max-height:120px;"
+          @input="autoResize($event)"
+        ></textarea>
+        <button
+          @click="send()"
+          :disabled="loading || !input.trim()"
+          class="bg-green-500 hover:bg-green-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold px-4 py-2 rounded-xl transition-colors shrink-0 text-sm"
+        >
+          <span x-show="!loading">Send</span>
+          <span x-show="loading">...</span>
+        </button>
+      </div>
+      <div class="text-xs text-slate-600 mt-1.5 text-center">
+        Enter to send · Shift+Enter for new line · Rankings data auto-injected as context
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script>
+    function chat() {
+      return {
+        messages: [],
+        input: '',
+        loading: false,
+
+        init() {},
+
+        async send() {
+          const text = this.input.trim();
+          if (!text || this.loading) return;
+          this.input = '';
+          this.$nextTick(() => { if (this.$refs.inputbox) this.$refs.inputbox.style.height = '48px'; });
+
+          this.messages.push({ role: 'user', content: text });
+          this.loading = true;
+          this.scrollBottom();
+
+          // Placeholder for streaming response
+          const aiIdx = this.messages.length;
+          this.messages.push({ role: 'assistant', content: '' });
+
+          try {
+            const resp = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages: this.messages.slice(0, -1) }),
+            });
+
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop();
+
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const data = line.slice(6);
+                if (data === '[DONE]') break;
+                try {
+                  const { text } = JSON.parse(data);
+                  this.messages[aiIdx].content += text;
+                  this.scrollBottom();
+                } catch {}
+              }
+            }
+          } catch (e) {
+            this.messages[aiIdx].content = '⚠️ Connection error. Please try again.';
+          }
+
+          this.loading = false;
+          this.scrollBottom();
+          this.$nextTick(() => { if (this.$refs.inputbox) this.$refs.inputbox.focus(); });
+        },
+
+        sendSuggestion(text) {
+          this.input = text;
+          this.send();
+        },
+
+        scrollBottom() {
+          this.$nextTick(() => {
+            const el = this.$refs.chatbox;
+            if (el) el.scrollTop = el.scrollHeight;
+          });
+        },
+
+        autoResize(e) {
+          e.target.style.height = '48px';
+          e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+        },
+
+        renderMarkdown(text) {
+          if (!text) return '';
+          // Basic markdown rendering without a library
+          return text
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code class="bg-black/30 px-1 rounded text-green-300">$1</code>')
+            .replace(/^### (.+)$/gm, '<h3 class="font-semibold text-white mt-3 mb-1">$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2 class="font-bold text-white mt-4 mb-2 text-base">$1</h2>')
+            .replace(/^- (.+)$/gm, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/^(?!<[hup])/gm, '')
+            .replace(/\n/g, '<br>');
+        },
+      };
+    }
+  </script>
+</body>
+</html>

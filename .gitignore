@@ -1,0 +1,25 @@
+# Environment
+.env
+
+# Database (local only — Render uses persistent disk)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp/test files
+test_smoke.py
+test_trends.py

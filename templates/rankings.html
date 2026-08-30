@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CFB Sentiment Rankings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { 900: '#0a0f1e', 800: '#111827', 700: '#1a2235', 600: '#1e2d45' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0a0f1e; }
+    .label-strongly-overrated  { color: #ef4444; }
+    .label-overrated           { color: #f97316; }
+    .label-fairly-rated        { color: #94a3b8; }
+    .label-underrated          { color: #38bdf8; }
+    .label-strongly-underrated { color: #34d399; }
+
+    .row-strongly-overrated  { background: rgba(239,68,68,0.06); }
+    .row-overrated           { background: rgba(249,115,22,0.05); }
+    .row-fairly-rated        { background: transparent; }
+    .row-underrated          { background: rgba(56,189,248,0.05); }
+    .row-strongly-underrated { background: rgba(52,211,153,0.06); }
+
+    .sort-btn { cursor: pointer; user-select: none; }
+    .sort-btn:hover { color: #e2e8f0; }
+    th { white-space: nowrap; }
+    .diverg-bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-left: 6px; }
+  </style>
+</head>
+<body class="text-slate-300 min-h-full" x-data="rankings()" x-init="init()">
+
+  <!-- Nav -->
+  <nav class="border-b border-slate-800 bg-navy-800 sticky top-0 z-40">
+    <div class="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🏈</span>
+        <span class="font-bold text-white tracking-tight text-lg">CFB Sentiment Rankings</span>
+      </div>
+      <div class="flex items-center gap-6 text-sm">
+        <a href="/" class="text-white border-b-2 border-green-400 pb-1">Rankings</a>
+        <a href="/chat" class="text-slate-400 hover:text-white transition-colors">Chat</a>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-500 text-xs">Updated {{ last_updated }}</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-screen-xl mx-auto px-4 py-6">
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="bg-navy-700 rounded-lg p-4 border border-slate-800">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Teams Ranked</div>
+        <div class="text-2xl font-bold text-white">{{ total_teams }}</div>
+        <div class="text-xs text-slate-500 mt-1">FBS programs</div>
+      </div>
+      {% set overrated = rows | selectattr("divergence_score", "ge", 10) | list %}
+      {% set strongly_over = rows | selectattr("divergence_label", "equalto", "Strongly Overrated") | list %}
+      {% set strongly_under = rows | selectattr("divergence_label", "equalto", "Strongly Underrated") | list %}
+      <div class="bg-navy-700 rounded-lg p-4 border border-red-900/40">
+        <div class="text-xs text-red-400 uppercase tracking-wider mb-1">Overrated</div>
+        <div class="text-2xl font-bold text-red-400">{{ strongly_over | length }}</div>
+        <div class="text-xs text-slate-500 mt-1">strongly overrated</div>
+      </div>
+      <div class="bg-navy-700 rounded-lg p-4 border border-green-900/40">
+        <div class="text-xs text-green-400 uppercase tracking-wider mb-1">Underrated</div>
+        <div class="text-2xl font-bold text-green-400">{{ strongly_under | length }}</div>
+        <div class="text-xs text-slate-500 mt-1">strongly underrated</div>
+      </div>
+      <div class="bg-navy-700 rounded-lg p-4 border border-slate-800">
+        <div class="text-xs text-slate-500 uppercase tracking-wider mb-1">Top Fade</div>
+        {% if rows %}
+        <div class="text-lg font-bold text-red-300 truncate">{{ rows[0].school }}</div>
+        <div class="text-xs text-red-400 mt-1">+{{ "%.1f" | format(rows[0].divergence_score) }} divergence</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-3 mb-4 items-center">
+      <div class="relative">
+        <input
+          x-model="search"
+          type="text"
+          placeholder="Search team..."
+          class="bg-navy-700 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-200 placeholder-slate-500 w-44 focus:outline-none focus:border-slate-500"
+        >
+      </div>
+      <select
+        x-model="confFilter"
+        class="bg-navy-700 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-slate-500"
+      >
+        <option value="">All Conferences</option>
+        {% for c in conferences %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+      <select
+        x-model="labelFilter"
+        class="bg-navy-700 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-slate-500"
+      >
+        <option value="">All Labels</option>
+        <option value="Strongly Overrated">🔴 Strongly Overrated</option>
+        <option value="Overrated">🟠 Overrated</option>
+        <option value="Fairly Rated">⚪ Fairly Rated</option>
+        <option value="Underrated">🔵 Underrated</option>
+        <option value="Strongly Underrated">🟢 Strongly Underrated</option>
+      </select>
+      <button
+        @click="search=''; confFilter=''; labelFilter=''"
+        class="text-xs text-slate-500 hover:text-slate-300 transition-colors px-2 py-1.5"
+      >Clear</button>
+      <span class="text-xs text-slate-600 ml-auto" x-text="`${filtered.length} teams`"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-navy-800 rounded-xl border border-slate-800 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-slate-700 text-xs uppercase tracking-wider text-slate-500">
+              <th class="text-left px-4 py-3 w-10">#</th>
+              <th class="text-left px-4 py-3 sort-btn" @click="setSort('school')">
+                School <span x-text="sortIcon('school')"></span>
+              </th>
+              <th class="text-left px-4 py-3 hidden md:table-cell">Conf</th>
+              <th class="text-right px-4 py-3 sort-btn" @click="setSort('quality_score')">
+                Quality <span x-text="sortIcon('quality_score')"></span>
+              </th>
+              <th class="text-right px-4 py-3 sort-btn hidden lg:table-cell" @click="setSort('sentiment_score')">
+                Sentiment <span x-text="sortIcon('sentiment_score')"></span>
+              </th>
+              <th class="text-right px-4 py-3 hidden lg:table-cell">AP Rank</th>
+              <th class="text-right px-4 py-3 hidden xl:table-cell">SP+</th>
+              <th class="text-right px-4 py-3 sort-btn" @click="setSort('divergence_score')">
+                Divergence <span x-text="sortIcon('divergence_score')"></span>
+              </th>
+              <th class="text-left px-4 py-3">Label</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="(row, idx) in filtered" :key="row.school">
+              <tr
+                :class="rowClass(row.divergence_label)"
+                class="border-b border-slate-800/50 hover:bg-white/5 transition-colors"
+              >
+                <td class="px-4 py-3 text-slate-500 text-xs" x-text="idx + 1"></td>
+                <td class="px-4 py-3 font-medium text-white" x-text="row.school"></td>
+                <td class="px-4 py-3 text-slate-500 text-xs hidden md:table-cell" x-text="(row.conference || '').substring(0,12)"></td>
+                <td class="px-4 py-3 text-right font-mono text-slate-300" x-text="row.quality_score ? row.quality_score.toFixed(1) : '—'"></td>
+                <td class="px-4 py-3 text-right font-mono text-slate-300 hidden lg:table-cell" x-text="row.sentiment_score ? row.sentiment_score.toFixed(1) : '—'"></td>
+                <td class="px-4 py-3 text-right text-slate-400 hidden lg:table-cell" x-text="row.ap_rank ? '#' + row.ap_rank : '—'"></td>
+                <td class="px-4 py-3 text-right text-slate-400 hidden xl:table-cell" x-text="row.sp_rating ? row.sp_rating.toFixed(1) : '—'"></td>
+                <td class="px-4 py-3 text-right font-mono font-semibold" :class="divergClass(row.divergence_score)">
+                  <span x-text="row.divergence_score ? (row.divergence_score > 0 ? '+' : '') + row.divergence_score.toFixed(1) : '0.0'"></span>
+                  <span
+                    class="diverg-bar"
+                    :style="divergBar(row.divergence_score)"
+                  ></span>
+                </td>
+                <td class="px-4 py-3 text-xs font-medium" :class="labelClass(row.divergence_label)" x-text="row.divergence_label || '—'"></td>
+              </tr>
+            </template>
+            <tr x-show="filtered.length === 0">
+              <td colspan="9" class="px-4 py-8 text-center text-slate-600">No teams match your filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
+      <span><span class="text-red-400 font-medium">Red</span> = public bets too heavily (fade candidate)</span>
+      <span><span class="text-green-400 font-medium">Green</span> = public ignores (potential value play)</span>
+      <span>Quality = SP+ + Win % &nbsp;|&nbsp; Sentiment = AP Poll + Google Trends + Recruiting</span>
+    </div>
+
+    <!-- Link to chat -->
+    <div class="mt-6 bg-gradient-to-r from-navy-700 to-navy-800 rounded-xl border border-slate-700 p-5 flex items-center justify-between">
+      <div>
+        <div class="text-white font-semibold mb-1">Want to dig deeper?</div>
+        <div class="text-slate-400 text-sm">Ask the AI assistant questions about specific teams, matchups, and betting implications.</div>
+      </div>
+      <a href="/chat" class="ml-4 shrink-0 bg-green-500 hover:bg-green-400 text-black font-semibold text-sm px-5 py-2.5 rounded-lg transition-colors">
+        Open Chat →
+      </a>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script>
+    // Embed server data into JS
+    const SERVER_ROWS = {{ rows | tojson }};
+
+    function rankings() {
+      return {
+        rows: SERVER_ROWS,
+        search: '',
+        confFilter: '',
+        labelFilter: '',
+        sortKey: 'divergence_score',
+        sortDir: -1,  // -1 = desc
+
+        init() {},
+
+        get filtered() {
+          let out = this.rows.filter(r => {
+            if (this.search && !r.school.toLowerCase().includes(this.search.toLowerCase())) return false;
+            if (this.confFilter && r.conference !== this.confFilter) return false;
+            if (this.labelFilter && r.divergence_label !== this.labelFilter) return false;
+            return true;
+          });
+          const k = this.sortKey;
+          const d = this.sortDir;
+          out.sort((a, b) => {
+            const av = a[k] ?? (typeof a[k] === 'string' ? '' : -Infinity);
+            const bv = b[k] ?? (typeof b[k] === 'string' ? '' : -Infinity);
+            if (typeof av === 'string') return d * av.localeCompare(bv);
+            return d * ((av || 0) - (bv || 0));
+          });
+          return out;
+        },
+
+        setSort(key) {
+          if (this.sortKey === key) { this.sortDir *= -1; }
+          else { this.sortKey = key; this.sortDir = -1; }
+        },
+
+        sortIcon(key) {
+          if (this.sortKey !== key) return '↕';
+          return this.sortDir === -1 ? '↓' : '↑';
+        },
+
+        rowClass(label) {
+          const map = {
+            'Strongly Overrated':  'row-strongly-overrated',
+            'Overrated':           'row-overrated',
+            'Fairly Rated':        'row-fairly-rated',
+            'Underrated':          'row-underrated',
+            'Strongly Underrated': 'row-strongly-underrated',
+          };
+          return map[label] || '';
+        },
+
+        labelClass(label) {
+          const map = {
+            'Strongly Overrated':  'label-strongly-overrated',
+            'Overrated':           'label-overrated',
+            'Fairly Rated':        'label-fairly-rated',
+            'Underrated':          'label-underrated',
+            'Strongly Underrated': 'label-strongly-underrated',
+          };
+          return map[label] || '';
+        },
+
+        divergClass(score) {
+          if (score >= 10) return 'text-red-400';
+          if (score >= 0)  return 'text-orange-300';
+          if (score >= -10) return 'text-slate-400';
+          if (score >= -20) return 'text-sky-400';
+          return 'text-green-400';
+        },
+
+        divergBar(score) {
+          const width = Math.min(Math.abs(score || 0) * 1.5, 40);
+          const color = score >= 10 ? '#ef4444' : score >= 0 ? '#f97316' : score >= -10 ? '#94a3b8' : score >= -20 ? '#38bdf8' : '#34d399';
+          return `width:${width}px; background:${color}; opacity:0.7;`;
+        },
+      };
+    }
+  </script>
+</body>
+</html>
