@@ -1,158 +1,376 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en" style="height:100%;">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CFB Sentiment Chat</title>
+  <title>CFB Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { colors: { navy: { 900: '#0a0f1e', 800: '#111827', 700: '#1a2235', 600: '#1e2d45' } } } }
-    }
-  </script>
   <style>
-    body { background: #0a0f1e; }
-    .chat-bubble-user { background: #1e3a5f; border-radius: 16px 16px 4px 16px; }
-    .chat-bubble-ai   { background: #1a2235; border-radius: 16px 16px 16px 4px; }
-    .chat-scroll { overflow-y: auto; scroll-behavior: smooth; }
-    .chat-scroll::-webkit-scrollbar { width: 4px; }
-    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
-    .chat-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
-    .typing-dot { animation: bounce 1.2s infinite; }
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
-    .suggestion-chip { cursor: pointer; transition: all 0.15s; }
-    .suggestion-chip:hover { background: #1e3a5f; border-color: #38bdf8; color: #e2e8f0; }
-    pre { background: #0f172a; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 0.8em; margin: 8px 0; }
-    code { font-family: 'Courier New', monospace; }
-    .prose p { margin-bottom: 8px; }
-    .prose ul { list-style: disc; padding-left: 20px; margin-bottom: 8px; }
-    .prose li { margin-bottom: 4px; }
-    .prose strong { color: #e2e8f0; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #F5F5F7;
+      color: #1D1D1F;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Nav */
+    .apple-nav {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid rgba(0,0,0,0.09);
+      flex-shrink: 0;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      padding: 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sidebar-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+      padding: 14px;
+    }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #86868B;
+      margin-bottom: 10px;
+    }
+
+    /* Team chips in sidebar */
+    .team-chip {
+      display: block;
+      padding: 8px 10px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: background 0.12s;
+      text-decoration: none;
+    }
+    .team-chip:last-child { margin-bottom: 0; }
+    .team-chip:hover { background: #F5F5F7; }
+    .team-chip .name { font-size: 13px; font-weight: 600; color: #1D1D1F; }
+    .team-chip .diverg { font-size: 11px; font-weight: 500; margin-top: 1px; }
+
+    /* Suggestion chips */
+    .sugg-chip {
+      display: block;
+      padding: 7px 10px;
+      border-radius: 8px;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: #3C3C43;
+      background: #F5F5F7;
+      cursor: pointer;
+      transition: background 0.12s;
+      line-height: 1.35;
+    }
+    .sugg-chip:last-child { margin-bottom: 0; }
+    .sugg-chip:hover { background: rgba(0,113,227,0.08); color: #0071E3; }
+
+    /* Chat area */
+    .chat-wrap {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 0 12px 0;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 4px;
+      scroll-behavior: smooth;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+    /* Message bubbles */
+    .bubble-user {
+      background: #0071E3;
+      color: #fff;
+      border-radius: 18px 18px 5px 18px;
+      padding: 10px 14px;
+      max-width: 78%;
+      font-size: 14px;
+      line-height: 1.45;
+      margin-left: auto;
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+    .bubble-ai {
+      background: #fff;
+      color: #1D1D1F;
+      border-radius: 18px 18px 18px 5px;
+      padding: 10px 14px;
+      max-width: 84%;
+      font-size: 14px;
+      line-height: 1.55;
+      margin-right: auto;
+      margin-bottom: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      word-break: break-word;
+    }
+    .bubble-row { display: flex; margin-bottom: 3px; }
+    .bubble-row.user { justify-content: flex-end; }
+    .bubble-row.ai   { justify-content: flex-start; }
+
+    /* AI label above bubble */
+    .ai-label { font-size: 11px; font-weight: 600; color: #86868B; margin-bottom: 3px; padding-left: 2px; }
+
+    /* Typing dots */
+    .dot { width:7px; height:7px; background:#C7C7CC; border-radius:50%; animation: bop 1.2s ease-in-out infinite; }
+    .dot:nth-child(2) { animation-delay: .18s; }
+    .dot:nth-child(3) { animation-delay: .36s; }
+    @keyframes bop { 0%,80%,100%{transform:translateY(0);opacity:.5} 40%{transform:translateY(-5px);opacity:1} }
+
+    /* Input bar */
+    .input-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 10px 0 0;
+    }
+    .chat-textarea {
+      flex: 1;
+      background: #fff;
+      border: 1.5px solid rgba(0,0,0,0.1);
+      border-radius: 22px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #1D1D1F;
+      resize: none;
+      outline: none;
+      line-height: 1.4;
+      min-height: 44px;
+      max-height: 120px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .chat-textarea:focus {
+      border-color: rgba(0,113,227,0.5);
+      box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+    }
+    .chat-textarea::placeholder { color: #8E8E93; }
+    .chat-textarea:disabled { opacity: 0.5; }
+
+    .send-btn {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      background: #0071E3;
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      line-height: 1;
+    }
+    .send-btn:hover:not(:disabled) { background: #0077ED; }
+    .send-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* Markdown in AI bubbles */
+    .md p { margin: 0 0 8px; }
+    .md p:last-child { margin-bottom: 0; }
+    .md ul { padding-left: 18px; margin: 6px 0; }
+    .md li { margin-bottom: 3px; }
+    .md strong { font-weight: 700; }
+    .md em { font-style: italic; }
+    .md code { font-family: ui-monospace, "SF Mono", monospace; font-size: 12px; background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; }
+    .md h2 { font-size: 15px; font-weight: 700; margin: 10px 0 4px; }
+    .md h3 { font-size: 13px; font-weight: 600; margin: 8px 0 3px; }
+
+    /* Welcome state */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      height: 100%;
+      padding: 32px 20px;
+    }
+
+    /* Mobile suggestion chips */
+    .mobile-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .mobile-chip {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 980px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: #1D1D1F;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .mobile-chip:hover { background: #0071E3; color: #fff; border-color: #0071E3; }
+
+    /* No API key warning */
+    .api-warn {
+      background: rgba(255,159,10,0.1);
+      border: 1px solid rgba(255,159,10,0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #8B5E00;
+      margin-top: 14px;
+      max-width: 360px;
+    }
+
+    /* Hint text */
+    .hint { font-size: 11px; color: #8E8E93; text-align: center; margin-top: 6px; }
   </style>
 </head>
-<body class="text-slate-300 h-full flex flex-col" x-data="chat()" x-init="init()">
+<body x-data="chat()" x-init="init()">
 
   <!-- Nav -->
-  <nav class="border-b border-slate-800 bg-navy-800 shrink-0">
-    <div class="max-w-screen-xl mx-auto px-4 h-14 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">🏈</span>
-        <span class="font-bold text-white tracking-tight text-lg">CFB Sentiment Rankings</span>
+  <nav class="apple-nav">
+    <div style="max-width:1100px; margin:0 auto; padding:0 20px; height:48px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:18px;">🏈</span>
+        <span style="font-weight:600; font-size:14px; color:#1D1D1F; letter-spacing:-0.02em;">CFB Sentiment</span>
       </div>
-      <div class="flex items-center gap-6 text-sm">
-        <a href="/" class="text-slate-400 hover:text-white transition-colors">Rankings</a>
-        <a href="/chat" class="text-white border-b-2 border-green-400 pb-1">Chat</a>
+      <div style="display:flex; align-items:center; gap:24px; font-size:14px;">
+        <a href="/" style="color:#6E6E73; text-decoration:none;" onmouseover="this.style.color='#1D1D1F'" onmouseout="this.style.color='#6E6E73'">Rankings</a>
+        <a href="/chat" style="font-weight:600; color:#0071E3; text-decoration:none;">Chat</a>
       </div>
     </div>
   </nav>
 
-  <div class="flex-1 flex overflow-hidden max-w-screen-xl mx-auto w-full px-4 py-4 gap-4">
+  <!-- Main layout -->
+  <div style="flex:1; display:flex; overflow:hidden; max-width:1100px; margin:0 auto; width:100%; padding:0 20px; gap:16px;">
 
-    <!-- Left sidebar: quick reference -->
-    <div class="hidden lg:flex flex-col w-64 shrink-0 gap-3">
+    <!-- Sidebar (desktop only) -->
+    <aside class="sidebar" id="sidebar" style="display:none;">
 
-      <div class="bg-navy-800 rounded-xl border border-slate-800 p-4">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-3">🔴 Most Overrated</div>
+      <div class="sidebar-card">
+        <div class="sidebar-label">🔴 Most Overrated</div>
         {% for r in overrated %}
-        <div
-          class="suggestion-chip rounded-lg border border-slate-700 px-3 py-2 mb-2 text-sm text-slate-400 bg-navy-700"
-          @click="sendSuggestion('Tell me about {{ r.school }} — why are they overrated and what does that mean for betting?')"
-        >
-          <div class="font-medium text-slate-200">{{ r.school }}</div>
-          <div class="text-xs text-red-400 mt-0.5">+{{ "%.1f" | format(r.divergence_score) }} divergence</div>
+        <div class="team-chip" @click="sendSuggestion('Why is {{ r.school }} overrated and what are the betting implications?')">
+          <div class="name">{{ r.school }}</div>
+          <div class="diverg" style="color:#FF3B30;">+{{ "%.1f" | format(r.divergence_score) }} divergence</div>
         </div>
         {% endfor %}
+        {% if not overrated %}
+        <div style="font-size:12px; color:#8E8E93;">No data yet</div>
+        {% endif %}
       </div>
 
-      <div class="bg-navy-800 rounded-xl border border-slate-800 p-4">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-3">🟢 Most Underrated</div>
+      <div class="sidebar-card">
+        <div class="sidebar-label">🟢 Most Underrated</div>
         {% for r in underrated %}
-        <div
-          class="suggestion-chip rounded-lg border border-slate-700 px-3 py-2 mb-2 text-sm text-slate-400 bg-navy-700"
-          @click="sendSuggestion('Tell me about {{ r.school }} — why are they underrated and what value do they offer?')"
-        >
-          <div class="font-medium text-slate-200">{{ r.school }}</div>
-          <div class="text-xs text-green-400 mt-0.5">{{ "%.1f" | format(r.divergence_score) }} divergence</div>
+        <div class="team-chip" @click="sendSuggestion('Why is {{ r.school }} underrated and is it a value play?')">
+          <div class="name">{{ r.school }}</div>
+          <div class="diverg" style="color:#34C759;">{{ "%.1f" | format(r.divergence_score) }} divergence</div>
         </div>
+        {% endfor %}
+        {% if not underrated %}
+        <div style="font-size:12px; color:#8E8E93;">No data yet</div>
+        {% endif %}
+      </div>
+
+      <div class="sidebar-card">
+        <div class="sidebar-label">💡 Suggested Questions</div>
+        {% for q in [
+          "Which SEC teams have the biggest sentiment gap?",
+          "Which ranked teams are most overrated right now?",
+          "Best Big Ten value plays?",
+          "Which G5 teams are flying under the radar?",
+          "Compare the top fade candidates this week"
+        ] %}
+        <div class="sugg-chip" @click="sendSuggestion('{{ q }}')">{{ q }}</div>
         {% endfor %}
       </div>
 
-      <div class="bg-navy-800 rounded-xl border border-slate-800 p-4">
-        <div class="text-xs text-slate-500 uppercase tracking-wider mb-3">💡 Try Asking</div>
-        <div class="space-y-2">
-          {% for q in [
-            "Which SEC teams have the biggest sentiment gap?",
-            "Which ranked teams are most overrated?",
-            "What are the best value teams in the Big Ten?",
-            "Compare Ohio State and Notre Dame sentiment",
-            "Which G5 teams are most underrated?"
-          ] %}
-          <div
-            class="suggestion-chip rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 bg-navy-700"
-            @click="sendSuggestion('{{ q }}')"
-          >{{ q }}</div>
-          {% endfor %}
-        </div>
-      </div>
+    </aside>
 
-    </div>
-
-    <!-- Main chat area -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <!-- Chat -->
+    <div class="chat-wrap">
 
       <!-- Messages -->
-      <div class="flex-1 chat-scroll rounded-xl border border-slate-800 bg-navy-800 p-4 mb-3" x-ref="chatbox">
+      <div class="chat-messages" x-ref="chatbox">
 
-        <!-- Welcome message -->
+        <!-- Welcome -->
         <template x-if="messages.length === 0">
-          <div class="h-full flex flex-col items-center justify-center text-center px-8">
-            <div class="text-5xl mb-4">🏈</div>
-            <div class="text-xl font-semibold text-white mb-2">CFB Sentiment Analyst</div>
-            <div class="text-slate-400 text-sm max-w-md mb-6">
-              Ask me anything about the public sentiment rankings — which teams are overrated, underrated,
-              what the betting implications are, or how specific teams compare.
+          <div class="welcome">
+            <div style="font-size:48px; margin-bottom:12px;">🏈</div>
+            <div style="font-size:22px; font-weight:700; color:#1D1D1F; letter-spacing:-0.03em; margin-bottom:6px;">CFB Analyst</div>
+            <div style="font-size:14px; color:#6E6E73; max-width:340px; line-height:1.5;">
+              Ask anything about sentiment rankings — overrated teams, value plays, betting implications, or team comparisons.
             </div>
             {% if not has_api_key %}
-            <div class="bg-yellow-900/30 border border-yellow-700/50 rounded-lg px-4 py-3 text-sm text-yellow-300">
-              ⚠️ Add <code class="bg-black/30 px-1 rounded">ANTHROPIC_API_KEY</code> to your .env file to enable chat.
+            <div class="api-warn">
+              ⚠️ Set <code style="font-family:ui-monospace,monospace; background:rgba(0,0,0,0.08); padding:1px 4px; border-radius:3px;">ANTHROPIC_API_KEY</code> in the Render dashboard to enable chat.
             </div>
             {% endif %}
-            <!-- Mobile suggestions -->
-            <div class="flex flex-wrap gap-2 justify-center lg:hidden mt-2">
-              <div class="suggestion-chip bg-navy-700 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-slate-400"
-                @click="sendSuggestion('Which teams are most overrated right now?')">Most overrated teams?</div>
-              <div class="suggestion-chip bg-navy-700 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-slate-400"
-                @click="sendSuggestion('Which G5 teams are flying under the radar?')">G5 value plays?</div>
-              <div class="suggestion-chip bg-navy-700 border border-slate-700 rounded-full px-3 py-1.5 text-xs text-slate-400"
-                @click="sendSuggestion('Summarize the biggest sentiment gaps in the SEC')">SEC gaps?</div>
+            <div class="mobile-chips">
+              <div class="mobile-chip" @click="sendSuggestion('Which teams are most overrated right now?')">Most overrated?</div>
+              <div class="mobile-chip" @click="sendSuggestion('Best value plays this week?')">Value plays?</div>
+              <div class="mobile-chip" @click="sendSuggestion('Biggest SEC sentiment gaps?')">SEC gaps?</div>
+              <div class="mobile-chip" @click="sendSuggestion('Which G5 teams are underrated?')">G5 sleepers?</div>
             </div>
           </div>
         </template>
 
-        <!-- Message list -->
-        <template x-for="(msg, i) in messages" :key="i">
-          <div :class="msg.role === 'user' ? 'flex justify-end mb-4' : 'flex justify-start mb-4'">
-            <div
-              :class="msg.role === 'user' ? 'chat-bubble-user text-slate-200 max-w-[80%]' : 'chat-bubble-ai text-slate-300 max-w-[90%]'"
-              class="px-4 py-3 text-sm"
-            >
-              <div x-show="msg.role === 'assistant'" class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-medium text-green-400">CFB Analyst</span>
+        <!-- Messages -->
+        <div style="padding-top:8px;">
+          <template x-for="(msg, i) in messages" :key="i">
+            <div>
+              <template x-if="msg.role==='assistant'">
+                <div>
+                  <div class="ai-label">CFB Analyst</div>
+                  <div class="bubble-row ai">
+                    <div class="bubble-ai md" x-html="renderMd(msg.content)"></div>
+                  </div>
+                </div>
+              </template>
+              <template x-if="msg.role==='user'">
+                <div class="bubble-row user">
+                  <div class="bubble-user" x-text="msg.content"></div>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <!-- Typing -->
+          <div x-show="loading" style="margin-bottom:6px;">
+            <div class="ai-label">CFB Analyst</div>
+            <div class="bubble-row ai">
+              <div class="bubble-ai" style="padding:12px 16px;">
+                <div style="display:flex; gap:5px; align-items:center;">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
               </div>
-              <div class="prose" x-html="renderMarkdown(msg.content)"></div>
-            </div>
-          </div>
-        </template>
-
-        <!-- Typing indicator -->
-        <div x-show="loading" class="flex justify-start mb-4">
-          <div class="chat-bubble-ai px-4 py-3">
-            <div class="flex gap-1 items-center">
-              <div class="typing-dot w-2 h-2 bg-slate-500 rounded-full"></div>
-              <div class="typing-dot w-2 h-2 bg-slate-500 rounded-full"></div>
-              <div class="typing-dot w-2 h-2 bg-slate-500 rounded-full"></div>
             </div>
           </div>
         </div>
@@ -160,33 +378,34 @@
       </div>
 
       <!-- Input -->
-      <div class="flex gap-2 shrink-0">
+      <div class="input-bar">
         <textarea
           x-model="input"
           x-ref="inputbox"
           @keydown.enter.prevent="if (!$event.shiftKey) send()"
-          placeholder="Ask about team sentiment, betting implications, matchups..."
+          placeholder="Ask about a team, matchup, or betting angle…"
           rows="1"
           :disabled="loading"
-          class="flex-1 bg-navy-700 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:border-slate-500 disabled:opacity-50"
-          style="min-height:48px; max-height:120px;"
+          class="chat-textarea"
           @input="autoResize($event)"
         ></textarea>
         <button
+          class="send-btn"
           @click="send()"
           :disabled="loading || !input.trim()"
-          class="bg-green-500 hover:bg-green-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold px-4 py-2 rounded-xl transition-colors shrink-0 text-sm"
-        >
-          <span x-show="!loading">Send</span>
-          <span x-show="loading">...</span>
-        </button>
+          title="Send"
+        >↑</button>
       </div>
-      <div class="text-xs text-slate-600 mt-1.5 text-center">
-        Enter to send · Shift+Enter for new line · Rankings data auto-injected as context
-      </div>
-    </div>
+      <div class="hint">Return to send · Shift+Return for new line</div>
 
+    </div>
   </div>
+
+  <!-- Show sidebar on lg screens -->
+  <style>
+    @media (min-width: 900px) { #sidebar { display: flex !important; } }
+    @media (max-width: 480px) { .chat-textarea { font-size: 16px; } }
+  </style>
 
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script>
@@ -202,13 +421,14 @@
           const text = this.input.trim();
           if (!text || this.loading) return;
           this.input = '';
-          this.$nextTick(() => { if (this.$refs.inputbox) this.$refs.inputbox.style.height = '48px'; });
+          this.$nextTick(() => {
+            if (this.$refs.inputbox) this.$refs.inputbox.style.height = 'auto';
+          });
 
           this.messages.push({ role: 'user', content: text });
           this.loading = true;
           this.scrollBottom();
 
-          // Placeholder for streaming response
           const aiIdx = this.messages.length;
           this.messages.push({ role: 'assistant', content: '' });
 
@@ -226,11 +446,9 @@
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-
               buffer += decoder.decode(value, { stream: true });
               const lines = buffer.split('\n');
               buffer = lines.pop();
-
               for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
                 const data = line.slice(6);
@@ -251,10 +469,7 @@
           this.$nextTick(() => { if (this.$refs.inputbox) this.$refs.inputbox.focus(); });
         },
 
-        sendSuggestion(text) {
-          this.input = text;
-          this.send();
-        },
+        sendSuggestion(text) { this.input = text; this.send(); },
 
         scrollBottom() {
           this.$nextTick(() => {
@@ -264,25 +479,25 @@
         },
 
         autoResize(e) {
-          e.target.style.height = '48px';
+          e.target.style.height = 'auto';
           e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
         },
 
-        renderMarkdown(text) {
+        renderMd(text) {
           if (!text) return '';
-          // Basic markdown rendering without a library
           return text
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            .replace(/`(.+?)`/g, '<code class="bg-black/30 px-1 rounded text-green-300">$1</code>')
-            .replace(/^### (.+)$/gm, '<h3 class="font-semibold text-white mt-3 mb-1">$1</h3>')
-            .replace(/^## (.+)$/gm, '<h2 class="font-bold text-white mt-4 mb-2 text-base">$1</h2>')
+            .replace(/`(.+?)`/g, '<code>$1</code>')
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
             .replace(/^- (.+)$/gm, '<li>$1</li>')
-            .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/^(?!<[hup])/gm, '')
-            .replace(/\n/g, '<br>');
+            .replace(/(<li>[\s\S]*?<\/li>(?:\s*<li>[\s\S]*?<\/li>)*)/g, '<ul>$1</ul>')
+            .split(/\n\n+/).map(p => {
+              if (p.startsWith('<h') || p.startsWith('<ul')) return p;
+              return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+            }).join('');
         },
       };
     }
