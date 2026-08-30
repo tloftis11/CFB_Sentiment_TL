@@ -6,9 +6,9 @@
   <title>CFB Sentiment Rankings</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
       background: #F5F5F7;
       color: #1D1D1F;
       -webkit-font-smoothing: antialiased;
@@ -17,38 +17,103 @@
     }
 
     /* Nav */
-    .apple-nav {
+    .nav {
       position: sticky;
       top: 0;
       z-index: 50;
-      background: rgba(255,255,255,0.82);
+      background: rgba(255,255,255,0.85);
       backdrop-filter: saturate(180%) blur(20px);
       -webkit-backdrop-filter: saturate(180%) blur(20px);
-      border-bottom: 1px solid rgba(0,0,0,0.09);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
     }
+    .nav-inner {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 20px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wordmark {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1D1D1F;
+      letter-spacing: -0.02em;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 14px;
+    }
+    .nav-link        { color: #6E6E73; text-decoration: none; }
+    .nav-link:hover  { color: #1D1D1F; }
+    .nav-link.active { color: #0071E3; font-weight: 600; }
 
-    /* Cards */
+    /* Layout */
+    .page { max-width: 980px; margin: 0 auto; padding: 36px 20px 72px; }
+
+    /* Card */
     .card {
       background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      border-radius: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04);
     }
 
-    /* Table container */
-    .table-card {
-      background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    /* Stat strip */
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+    }
+    .stat-cell {
+      padding: 20px 24px;
+    }
+    .stat-cell + .stat-cell {
+      border-left: 1px solid rgba(0,0,0,0.07);
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #86868B;
+      margin-bottom: 6px;
+    }
+    .stat-num {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: #86868B;
+      margin-top: 3px;
+    }
+    .stat-name {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
       overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-    /* Inputs */
-    .apple-input {
+    /* Filters */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .field {
       appearance: none;
-      background: rgba(0,0,0,0.055);
+      background: rgba(0,0,0,0.05);
       border: none;
-      border-radius: 9px;
+      border-radius: 8px;
       padding: 7px 11px;
       font-size: 14px;
       font-family: inherit;
@@ -56,17 +121,17 @@
       outline: none;
       transition: background 0.15s, box-shadow 0.15s;
     }
-    .apple-input:focus {
-      background: rgba(0,0,0,0.08);
-      box-shadow: 0 0 0 3px rgba(0,113,227,0.22);
+    .field:focus {
+      background: rgba(0,0,0,0.07);
+      box-shadow: 0 0 0 3px rgba(0,113,227,0.2);
     }
-    .apple-input::placeholder { color: #8E8E93; }
+    .field::placeholder { color: #8E8E93; }
+    .field-sm { width: 160px; }
 
-    /* Pill button */
-    .pill-btn {
+    .clear-btn {
       display: inline-flex;
       align-items: center;
-      background: rgba(0,113,227,0.09);
+      background: rgba(0,113,227,0.08);
       color: #0071E3;
       border: none;
       border-radius: 980px;
@@ -77,10 +142,102 @@
       cursor: pointer;
       transition: background 0.15s;
     }
-    .pill-btn:hover { background: rgba(0,113,227,0.15); }
+    .clear-btn:hover { background: rgba(0,113,227,0.14); }
 
-    /* CTA button */
-    .apple-btn {
+    /* Table */
+    .table-wrap { overflow: hidden; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04); }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+    thead th {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #86868B;
+      padding: 13px 16px;
+      border-bottom: 1px solid rgba(0,0,0,0.07);
+      white-space: nowrap;
+      user-select: none;
+      background: #fff;
+    }
+    thead th.sortable { cursor: pointer; }
+    thead th.sortable:hover { color: #0071E3; }
+
+    tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background 0.1s; }
+    tbody tr:hover td { background: rgba(0,113,227,0.025); }
+
+    /* Left-border rank cell */
+    .rank-cell {
+      padding-left: 12px !important;
+      color: #86868B;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 980px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+    }
+    .badge-red    { background: rgba(255,59,48,0.1);    color: #C0000D; }
+    .badge-orange { background: rgba(255,159,10,0.12);  color: #9E5600; }
+    .badge-gray   { background: rgba(142,142,147,0.12); color: #6E6E73; }
+    .badge-blue   { background: rgba(0,122,255,0.1);    color: #0050A0; }
+    .badge-green  { background: rgba(52,199,89,0.1);    color: #187B34; }
+
+    /* Monospace numbers */
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+    /* Sort indicator */
+    .si { font-size: 10px; opacity: 0.3; margin-left: 3px; }
+    .si.on { opacity: 1; color: #0071E3; }
+
+    /* Empty state */
+    .empty { padding: 64px 24px; text-align: center; }
+    .empty-title { font-size: 16px; font-weight: 600; color: #1D1D1F; margin-bottom: 6px; }
+    .empty-sub { font-size: 14px; color: #86868B; }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 20px;
+      font-size: 12px;
+      color: #86868B;
+      line-height: 1.4;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    /* CTA card */
+    .cta-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 22px 28px;
+    }
+    .cta-link {
       display: inline-flex;
       align-items: center;
       background: #0071E3;
@@ -97,135 +254,95 @@
       transition: background 0.15s;
       white-space: nowrap;
     }
-    .apple-btn:hover { background: #0077ED; }
+    .cta-link:hover { background: #0077ED; }
 
-    /* Table rows */
-    thead th {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #86868B;
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(0,0,0,0.07);
-      white-space: nowrap;
-      user-select: none;
+    /* Responsive columns */
+    @media (min-width: 600px)  { .sm-col { display: table-cell !important; } }
+    @media (min-width: 768px)  { .md-col { display: table-cell !important; } }
+    @media (min-width: 1024px) { .lg-col { display: table-cell !important; } }
+
+    /* Stat strip stacks on small screens */
+    @media (max-width: 600px) {
+      .stat-strip { grid-template-columns: repeat(2, 1fr); }
+      .stat-cell:nth-child(3) { border-left: none; border-top: 1px solid rgba(0,0,0,0.07); }
+      .stat-cell:nth-child(4) { border-top: 1px solid rgba(0,0,0,0.07); }
+      .apple-input { font-size: 16px; }
     }
-    thead th.sortable { cursor: pointer; }
-    thead th.sortable:hover { color: #0071E3; }
-
-    tbody td {
-      padding: 11px 16px;
-      border-bottom: 1px solid rgba(0,0,0,0.04);
-    }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr { transition: background 0.1s; }
-    tbody tr:hover { background: rgba(0,113,227,0.035); }
-
-    /* Label badges */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 2px 9px;
-      border-radius: 980px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.01em;
-      white-space: nowrap;
-    }
-    .badge-red    { background: rgba(255,59,48,0.1);   color: #D70015; }
-    .badge-orange { background: rgba(255,159,10,0.12); color: #B36200; }
-    .badge-gray   { background: rgba(142,142,147,0.12); color: #6E6E73; }
-    .badge-blue   { background: rgba(0,122,255,0.1);   color: #0055B3; }
-    .badge-green  { background: rgba(52,199,89,0.1);   color: #1A8C3A; }
-
-    /* Divergence bar */
-    .div-bar { display: inline-block; height: 4px; border-radius: 2px; vertical-align: middle; margin-left: 5px; flex-shrink: 0; }
-
-    /* Empty state */
-    .empty-cell { padding: 52px 24px; text-align: center; }
-
-    /* Sort icon */
-    .si { font-size: 10px; opacity: 0.35; margin-left: 2px; }
-    .si.on { opacity: 1; color: #0071E3; }
   </style>
 </head>
 <body x-data="rankings()" x-init="init()">
 
-  <!-- Nav -->
-  <nav class="apple-nav">
-    <div style="max-width:980px; margin:0 auto; padding:0 20px; height:48px; display:flex; align-items:center; justify-content:space-between;">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:18px;">🏈</span>
-        <span style="font-weight:600; font-size:14px; color:#1D1D1F; letter-spacing:-0.02em;">CFB Sentiment</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:24px; font-size:14px;">
-        <a href="/" style="font-weight:600; color:#0071E3; text-decoration:none;">Rankings</a>
-        <a href="/chat" style="color:#6E6E73; text-decoration:none;" onmouseover="this.style.color='#1D1D1F'" onmouseout="this.style.color='#6E6E73'">Chat</a>
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="wordmark">CFB Sentiment</span>
+      <div class="nav-links">
+        <a href="/" class="nav-link active">Rankings</a>
+        <a href="/chat" class="nav-link">Chat</a>
       </div>
     </div>
   </nav>
 
-  <main style="max-width:980px; margin:0 auto; padding:32px 20px 60px;">
+  <main class="page">
 
     <!-- Header -->
-    <div style="margin-bottom:28px;">
-      <h1 style="font-size:clamp(28px,5vw,40px); font-weight:700; color:#1D1D1F; letter-spacing:-0.04em; margin:0 0 4px;">Rankings</h1>
-      <p style="font-size:14px; color:#6E6E73; margin:0;">Sentiment vs. quality divergence · updated {{ last_updated }}</p>
+    <div style="margin-bottom: 24px;">
+      <h1 style="font-size: clamp(26px,5vw,38px); font-weight: 700; letter-spacing: -0.04em; margin: 0 0 4px; color: #1D1D1F;">Rankings</h1>
+      <p style="font-size: 14px; color: #86868B; margin: 0;">Sentiment vs. quality divergence &middot; updated {{ last_updated }}</p>
     </div>
 
-    <!-- Summary cards -->
-    {% set strongly_over  = rows | selectattr("divergence_label", "equalto", "Strongly Overrated")  | list %}
-    {% set strongly_under = rows | selectattr("divergence_label", "equalto", "Strongly Underrated") | list %}
+    <!-- Stat strip -->
+    {% set over_rows  = (rows | selectattr("divergence_label", "equalto", "Strongly Overrated")  | list)
+                      + (rows | selectattr("divergence_label", "equalto", "Overrated") | list) %}
+    {% set under_rows = (rows | selectattr("divergence_label", "equalto", "Strongly Underrated") | list)
+                      + (rows | selectattr("divergence_label", "equalto", "Underrated") | list) %}
 
-    <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px;">
+    <div class="card stat-strip" style="margin-bottom: 20px;">
 
-      <div class="card" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#86868B; margin-bottom:8px;">Teams Ranked</div>
-        <div style="font-size:36px; font-weight:700; color:#1D1D1F; letter-spacing:-0.04em; line-height:1;">{{ total_teams }}</div>
-        <div style="font-size:12px; color:#86868B; margin-top:4px;">FBS programs</div>
+      <div class="stat-cell">
+        <div class="stat-label">FBS Teams</div>
+        <div class="stat-num" style="color: #1D1D1F;">{{ total_teams }}</div>
+        <div class="stat-sub">programs ranked</div>
       </div>
 
-      <div class="card" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#FF3B30; margin-bottom:8px;">Strongly Overrated</div>
-        <div style="font-size:36px; font-weight:700; color:#FF3B30; letter-spacing:-0.04em; line-height:1;">{{ strongly_over | length }}</div>
-        <div style="font-size:12px; color:#86868B; margin-top:4px;">fade candidates</div>
+      <div class="stat-cell">
+        <div class="stat-label" style="color: #C0000D;">Overrated</div>
+        <div class="stat-num" style="color: #FF3B30;">{{ over_rows | length }}</div>
+        <div class="stat-sub">fade candidates</div>
       </div>
 
-      <div class="card" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#1A8C3A; margin-bottom:8px;">Strongly Underrated</div>
-        <div style="font-size:36px; font-weight:700; color:#34C759; letter-spacing:-0.04em; line-height:1;">{{ strongly_under | length }}</div>
-        <div style="font-size:12px; color:#86868B; margin-top:4px;">value plays</div>
+      <div class="stat-cell">
+        <div class="stat-label" style="color: #187B34;">Underrated</div>
+        <div class="stat-num" style="color: #34C759;">{{ under_rows | length }}</div>
+        <div class="stat-sub">value plays</div>
       </div>
 
-      <div class="card" style="padding:20px;">
-        <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#86868B; margin-bottom:8px;">Top Fade</div>
+      <div class="stat-cell">
+        <div class="stat-label">Top Fade</div>
         {% if rows %}
-        <div style="font-size:20px; font-weight:600; color:#1D1D1F; letter-spacing:-0.02em; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ rows[0].school }}</div>
-        <div style="font-size:12px; color:#FF3B30; font-weight:500; margin-top:4px;">+{{ "%.1f" | format(rows[0].divergence_score) }} divergence</div>
+        <div class="stat-name">{{ rows[0].school }}</div>
+        <div class="stat-sub" style="color: #FF3B30;">+{{ "%.1f" | format(rows[0].divergence_score) }} divergence</div>
         {% else %}
-        <div style="font-size:28px; color:#86868B;">—</div>
+        <div class="stat-name" style="color: #86868B;">—</div>
         {% endif %}
       </div>
 
     </div>
 
     <!-- Filters -->
-    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px;">
+    <div class="filter-bar" style="margin-bottom: 12px;">
       <input
         x-model="search"
         type="search"
-        placeholder="Search team…"
-        class="apple-input"
-        style="width:160px;"
+        placeholder="Search team..."
+        class="field field-sm"
       >
-      <select x-model="confFilter" class="apple-input">
+      <select x-model="confFilter" class="field">
         <option value="">All Conferences</option>
         {% for c in conferences %}
         <option value="{{ c }}">{{ c }}</option>
         {% endfor %}
       </select>
-      <select x-model="labelFilter" class="apple-input">
+      <select x-model="labelFilter" class="field">
         <option value="">All Labels</option>
         <option value="Strongly Overrated">Strongly Overrated</option>
         <option value="Overrated">Overrated</option>
@@ -233,48 +350,57 @@
         <option value="Underrated">Underrated</option>
         <option value="Strongly Underrated">Strongly Underrated</option>
       </select>
-      <button class="pill-btn" @click="search=''; confFilter=''; labelFilter=''" x-show="search || confFilter || labelFilter">Clear</button>
-      <span style="margin-left:auto; font-size:13px; color:#86868B;" x-text="`${filtered.length} teams`"></span>
+      <button class="clear-btn" @click="search=''; confFilter=''; labelFilter=''" x-show="search || confFilter || labelFilter">Clear</button>
+      <span style="margin-left: auto; font-size: 13px; color: #86868B;" x-text="`${filtered.length} teams`"></span>
     </div>
 
     <!-- Table -->
-    <div class="table-card">
+    <div class="table-wrap">
       <div class="table-scroll">
-        <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <table>
           <thead>
             <tr>
-              <th style="text-align:left; width:36px;">#</th>
-              <th class="sortable" style="text-align:left;" @click="setSort('school')">School <span class="si" :class="sortKey==='school'?'on':''" x-text="sortKey==='school'?(sortDir===-1?'↓':'↑'):'↕'"></span></th>
-              <th style="text-align:left; display:none;" class="md-col">Conf</th>
-              <th class="sortable" style="text-align:right;" @click="setSort('quality_score')">Quality <span class="si" :class="sortKey==='quality_score'?'on':''" x-text="sortKey==='quality_score'?(sortDir===-1?'↓':'↑'):'↕'"></span></th>
-              <th class="sortable lg-col" style="text-align:right; display:none;" @click="setSort('sentiment_score')">Sentiment <span class="si" :class="sortKey==='sentiment_score'?'on':''" x-text="sortKey==='sentiment_score'?(sortDir===-1?'↓':'↑'):'↕'"></span></th>
-              <th class="lg-col" style="text-align:right; display:none;">AP</th>
-              <th class="sortable" style="text-align:right;" @click="setSort('divergence_score')">Divergence <span class="si" :class="sortKey==='divergence_score'?'on':''" x-text="sortKey==='divergence_score'?(sortDir===-1?'↓':'↑'):'↕'"></span></th>
-              <th class="sm-col" style="text-align:left; display:none;">Label</th>
+              <th style="text-align: left; width: 40px;">#</th>
+              <th class="sortable" style="text-align: left;" @click="setSort('school')">
+                School <span class="si" :class="sortKey==='school'?'on':''" x-text="sortKey==='school'?(sortDir===-1?'↓':'↑'):'↕'"></span>
+              </th>
+              <th class="md-col" style="text-align: left; display: none;">Conference</th>
+              <th class="sortable" style="text-align: right;" @click="setSort('quality_score')">
+                Quality <span class="si" :class="sortKey==='quality_score'?'on':''" x-text="sortKey==='quality_score'?(sortDir===-1?'↓':'↑'):'↕'"></span>
+              </th>
+              <th class="sortable lg-col" style="text-align: right; display: none;" @click="setSort('sentiment_score')">
+                Sentiment <span class="si" :class="sortKey==='sentiment_score'?'on':''" x-text="sortKey==='sentiment_score'?(sortDir===-1?'↓':'↑'):'↕'"></span>
+              </th>
+              <th class="lg-col" style="text-align: right; display: none;">AP</th>
+              <th class="sortable" style="text-align: right;" @click="setSort('divergence_score')">
+                Divergence <span class="si" :class="sortKey==='divergence_score'?'on':''" x-text="sortKey==='divergence_score'?(sortDir===-1?'↓':'↑'):'↕'"></span>
+              </th>
+              <th class="sm-col" style="text-align: left; display: none;">Label</th>
             </tr>
           </thead>
           <tbody>
             <template x-for="(row, idx) in filtered" :key="row.school">
               <tr>
-                <td style="color:#86868B; font-size:12px;" x-text="idx+1"></td>
-                <td style="font-weight:600; color:#1D1D1F;" x-text="row.school"></td>
-                <td class="md-col" style="display:none; color:#86868B; font-size:12px;" x-text="(row.conference||'').substring(0,14)"></td>
-                <td style="text-align:right; font-family:ui-monospace,monospace; color:#1D1D1F;" x-text="row.quality_score ? row.quality_score.toFixed(1) : '—'"></td>
-                <td class="lg-col" style="display:none; text-align:right; font-family:ui-monospace,monospace; color:#6E6E73;" x-text="row.sentiment_score ? row.sentiment_score.toFixed(1) : '—'"></td>
-                <td class="lg-col" style="display:none; text-align:right; color:#6E6E73;" x-text="row.ap_rank ? '#'+row.ap_rank : '—'"></td>
-                <td style="text-align:right; white-space:nowrap;">
-                  <span style="font-family:ui-monospace,monospace; font-weight:600;" :style="divStyle(row.divergence_score)" x-text="(row.divergence_score>0?'+':'')+(row.divergence_score||0).toFixed(1)"></span>
-                  <span class="div-bar" :style="barStyle(row.divergence_score)"></span>
+                <td class="rank-cell" :style="'border-left: 3px solid '+labelColor(row.divergence_label)" x-text="idx+1"></td>
+                <td style="font-weight: 600; color: #1D1D1F;" x-text="row.school"></td>
+                <td class="md-col" style="display: none; color: #86868B; font-size: 13px;" x-text="(row.conference||'').substring(0,16)"></td>
+                <td style="text-align: right;" class="mono" x-text="row.quality_score ? row.quality_score.toFixed(1) : '—'"></td>
+                <td class="lg-col mono" style="display: none; text-align: right; color: #6E6E73;" x-text="row.sentiment_score ? row.sentiment_score.toFixed(1) : '—'"></td>
+                <td class="lg-col" style="display: none; text-align: right; color: #6E6E73;" x-text="row.ap_rank ? '#'+row.ap_rank : '—'"></td>
+                <td style="text-align: right;">
+                  <span class="mono" style="font-weight: 600;" :style="'color:'+divColor(row.divergence_score)" x-text="(row.divergence_score>0?'+':'')+(row.divergence_score||0).toFixed(1)"></span>
                 </td>
-                <td class="sm-col" style="display:none;">
+                <td class="sm-col" style="display: none;">
                   <span class="badge" :class="badgeCls(row.divergence_label)" x-text="row.divergence_label||'—'"></span>
                 </td>
               </tr>
             </template>
             <tr x-show="filtered.length===0">
-              <td colspan="8" class="empty-cell">
-                <div style="font-size:32px; margin-bottom:10px;">📊</div>
-                <div style="font-size:15px; color:#86868B;" x-text="rows.length===0?'Pipeline is running — data arrives in ~6 minutes.':'No teams match your filters.'"></div>
+              <td colspan="8">
+                <div class="empty">
+                  <div class="empty-title" x-text="rows.length===0 ? 'No data yet' : 'No teams match your filters'"></div>
+                  <div class="empty-sub" x-text="rows.length===0 ? 'Run the pipeline locally to generate rankings.' : 'Try clearing your filters.'"></div>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -283,31 +409,22 @@
     </div>
 
     <!-- Legend -->
-    <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:12px 20px; font-size:12px; color:#86868B;">
-      <span><span style="color:#FF3B30; font-weight:600;">Red</span> = public overvalues (fade)</span>
-      <span><span style="color:#34C759; font-weight:600;">Green</span> = public undervalues (value)</span>
-      <span>Quality = SP+ + Win% · Sentiment = AP Poll + Trends + Recruiting</span>
+    <div class="legend" style="margin-top: 14px;">
+      <span><span class="legend-dot" style="background: #FF3B30;"></span>Overrated — public perception exceeds quality (fade)</span>
+      <span><span class="legend-dot" style="background: #34C759;"></span>Underrated — quality exceeds public perception (value)</span>
+      <span style="color: #AEAEB2;">Quality = SP+ + Win% &nbsp;&middot;&nbsp; Sentiment = AP Poll + Trends + Recruiting</span>
     </div>
 
     <!-- Chat CTA -->
-    <div class="card" style="margin-top:24px; padding:20px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+    <div class="card cta-card" style="margin-top: 24px;">
       <div>
-        <div style="font-size:16px; font-weight:600; color:#1D1D1F; letter-spacing:-0.02em; margin-bottom:4px;">Explore with AI</div>
-        <div style="font-size:14px; color:#6E6E73;">Ask questions about teams, matchups, and betting implications.</div>
+        <div style="font-size: 16px; font-weight: 600; color: #1D1D1F; letter-spacing: -0.02em; margin-bottom: 4px;">Explore with AI</div>
+        <div style="font-size: 14px; color: #6E6E73;">Ask about teams, matchups, and betting implications.</div>
       </div>
-      <a href="/chat" class="apple-btn">Chat →</a>
+      <a href="/chat" class="cta-link">Open Chat</a>
     </div>
 
   </main>
-
-  <style>
-    @media (min-width: 600px)  { .sm-col  { display:table-cell !important; } }
-    @media (min-width: 768px)  { .md-col  { display:table-cell !important; } }
-    @media (min-width: 1024px) { .lg-col  { display:table-cell !important; } }
-    @media (max-width: 480px)  {
-      .apple-input { font-size:16px; } /* prevents iOS zoom */
-    }
-  </style>
 
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script>
@@ -346,19 +463,24 @@
           else { this.sortKey = key; this.sortDir = -1; }
         },
 
-        divStyle(s) {
-          if (s >=  20) return 'color:#D70015;';
-          if (s >=  10) return 'color:#FF3B30;';
-          if (s >=   0) return 'color:#FF9F0A;';
-          if (s >= -10) return 'color:#8E8E93;';
-          if (s >= -20) return 'color:#007AFF;';
-          return 'color:#34C759;';
+        labelColor(label) {
+          const m = {
+            'Strongly Overrated':  '#FF3B30',
+            'Overrated':           '#FF9F0A',
+            'Fairly Rated':        '#D1D1D6',
+            'Underrated':          '#007AFF',
+            'Strongly Underrated': '#34C759',
+          };
+          return m[label] || '#D1D1D6';
         },
 
-        barStyle(s) {
-          const w = Math.min(Math.abs(s || 0) * 1.5, 36);
-          const c = s >= 10 ? '#FF3B30' : s >= 0 ? '#FF9F0A' : s >= -10 ? '#8E8E93' : s >= -20 ? '#007AFF' : '#34C759';
-          return `width:${w}px; background:${c}; opacity:0.55;`;
+        divColor(s) {
+          if (s >= 20) return '#C0000D';
+          if (s >= 10) return '#FF3B30';
+          if (s >=  0) return '#FF9F0A';
+          if (s >= -10) return '#8E8E93';
+          if (s >= -20) return '#007AFF';
+          return '#34C759';
         },
 
         badgeCls(label) {

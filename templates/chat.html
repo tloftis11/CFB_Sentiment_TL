@@ -6,10 +6,10 @@
   <title>CFB Chat</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
       background: #F5F5F7;
       color: #1D1D1F;
       -webkit-font-smoothing: antialiased;
@@ -19,37 +19,62 @@
     }
 
     /* Nav */
-    .apple-nav {
-      background: rgba(255,255,255,0.82);
+    .nav {
+      background: rgba(255,255,255,0.85);
       backdrop-filter: saturate(180%) blur(20px);
       -webkit-backdrop-filter: saturate(180%) blur(20px);
-      border-bottom: 1px solid rgba(0,0,0,0.09);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
       flex-shrink: 0;
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .wordmark { font-size: 14px; font-weight: 700; color: #1D1D1F; letter-spacing: -0.02em; }
+    .nav-links { display: flex; align-items: center; gap: 24px; font-size: 14px; }
+    .nav-link        { color: #6E6E73; text-decoration: none; }
+    .nav-link:hover  { color: #1D1D1F; }
+    .nav-link.active { color: #0071E3; font-weight: 600; }
+
+    /* Layout */
+    .layout {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 0 20px;
+      gap: 16px;
     }
 
     /* Sidebar */
     .sidebar {
-      width: 260px;
+      width: 248px;
       flex-shrink: 0;
       overflow-y: auto;
-      padding: 12px 0;
-      display: flex;
+      padding: 16px 0;
+      display: none;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
     .sidebar-card {
       background: #fff;
       border-radius: 14px;
-      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
-      padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03);
+      padding: 16px;
     }
-    .sidebar-label {
+    .sidebar-heading {
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: #86868B;
-      margin-bottom: 10px;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
     }
 
     /* Team chips in sidebar */
@@ -57,7 +82,7 @@
       display: block;
       padding: 8px 10px;
       border-radius: 10px;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       cursor: pointer;
       transition: background 0.12s;
       text-decoration: none;
@@ -72,16 +97,16 @@
       display: block;
       padding: 7px 10px;
       border-radius: 8px;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
       font-size: 12px;
       color: #3C3C43;
       background: #F5F5F7;
       cursor: pointer;
-      transition: background 0.12s;
+      transition: background 0.12s, color 0.12s;
       line-height: 1.35;
     }
     .sugg-chip:last-child { margin-bottom: 0; }
-    .sugg-chip:hover { background: rgba(0,113,227,0.08); color: #0071E3; }
+    .sugg-chip:hover { background: rgba(0,113,227,0.07); color: #0071E3; }
 
     /* Chat area */
     .chat-wrap {
@@ -89,19 +114,19 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      padding: 12px 0 12px 0;
+      padding: 12px 0;
     }
     .chat-messages {
       flex: 1;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding: 0 4px;
+      padding: 0 2px;
       scroll-behavior: smooth;
     }
     .chat-messages::-webkit-scrollbar { width: 4px; }
-    .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 2px; }
 
-    /* Message bubbles */
+    /* Bubbles */
     .bubble-user {
       background: #0071E3;
       color: #fff;
@@ -127,18 +152,16 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.08);
       word-break: break-word;
     }
-    .bubble-row { display: flex; margin-bottom: 3px; }
+    .bubble-row      { display: flex; margin-bottom: 2px; }
     .bubble-row.user { justify-content: flex-end; }
     .bubble-row.ai   { justify-content: flex-start; }
-
-    /* AI label above bubble */
     .ai-label { font-size: 11px; font-weight: 600; color: #86868B; margin-bottom: 3px; padding-left: 2px; }
 
-    /* Typing dots */
-    .dot { width:7px; height:7px; background:#C7C7CC; border-radius:50%; animation: bop 1.2s ease-in-out infinite; }
+    /* Typing indicator */
+    .dot { width: 7px; height: 7px; background: #C7C7CC; border-radius: 50%; animation: bop 1.2s ease-in-out infinite; }
     .dot:nth-child(2) { animation-delay: .18s; }
     .dot:nth-child(3) { animation-delay: .36s; }
-    @keyframes bop { 0%,80%,100%{transform:translateY(0);opacity:.5} 40%{transform:translateY(-5px);opacity:1} }
+    @keyframes bop { 0%,80%,100% { transform: translateY(0); opacity: .5; } 40% { transform: translateY(-5px); opacity: 1; } }
 
     /* Input bar */
     .input-bar {
@@ -148,7 +171,7 @@
       gap: 8px;
       padding: 10px 0 0;
     }
-    .chat-textarea {
+    .chat-input {
       flex: 1;
       background: #fff;
       border: 1.5px solid rgba(0,0,0,0.1);
@@ -164,12 +187,12 @@
       max-height: 120px;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .chat-textarea:focus {
-      border-color: rgba(0,113,227,0.5);
-      box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+    .chat-input:focus {
+      border-color: rgba(0,113,227,0.45);
+      box-shadow: 0 0 0 3px rgba(0,113,227,0.12);
     }
-    .chat-textarea::placeholder { color: #8E8E93; }
-    .chat-textarea:disabled { opacity: 0.5; }
+    .chat-input::placeholder { color: #8E8E93; }
+    .chat-input:disabled { opacity: 0.5; }
 
     .send-btn {
       flex-shrink: 0;
@@ -179,7 +202,7 @@
       border: none;
       border-radius: 50%;
       color: #fff;
-      font-size: 17px;
+      font-size: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -188,9 +211,11 @@
       line-height: 1;
     }
     .send-btn:hover:not(:disabled) { background: #0077ED; }
-    .send-btn:disabled { opacity: 0.35; cursor: default; }
+    .send-btn:disabled { opacity: 0.3; cursor: default; }
 
-    /* Markdown in AI bubbles */
+    .hint { font-size: 11px; color: #8E8E93; text-align: center; margin-top: 5px; }
+
+    /* Markdown rendering */
     .md p { margin: 0 0 8px; }
     .md p:last-child { margin-bottom: 0; }
     .md ul { padding-left: 18px; margin: 6px 0; }
@@ -211,6 +236,32 @@
       height: 100%;
       padding: 32px 20px;
     }
+    .welcome-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #1D1D1F;
+      margin-bottom: 8px;
+    }
+    .welcome-sub {
+      font-size: 14px;
+      color: #6E6E73;
+      max-width: 360px;
+      line-height: 1.6;
+    }
+
+    /* API key warning */
+    .api-warn {
+      border-left: 3px solid #FF9F0A;
+      background: rgba(255,159,10,0.07);
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #7A4C00;
+      margin-top: 16px;
+      max-width: 380px;
+      text-align: left;
+    }
 
     /* Mobile suggestion chips */
     .mobile-chips {
@@ -218,7 +269,7 @@
       flex-wrap: wrap;
       gap: 6px;
       justify-content: center;
-      margin-top: 16px;
+      margin-top: 18px;
     }
     .mobile-chip {
       background: #fff;
@@ -228,77 +279,61 @@
       font-size: 12px;
       color: #1D1D1F;
       cursor: pointer;
-      transition: background 0.12s, color 0.12s;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .mobile-chip:hover { background: #0071E3; color: #fff; border-color: #0071E3; }
 
-    /* No API key warning */
-    .api-warn {
-      background: rgba(255,159,10,0.1);
-      border: 1px solid rgba(255,159,10,0.3);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
-      color: #8B5E00;
-      margin-top: 14px;
-      max-width: 360px;
-    }
-
-    /* Hint text */
-    .hint { font-size: 11px; color: #8E8E93; text-align: center; margin-top: 6px; }
+    /* Responsive */
+    @media (min-width: 900px)  { .sidebar { display: flex !important; } }
+    @media (max-width: 480px)  { .chat-input { font-size: 16px; } }
   </style>
 </head>
 <body x-data="chat()" x-init="init()">
 
-  <!-- Nav -->
-  <nav class="apple-nav">
-    <div style="max-width:1100px; margin:0 auto; padding:0 20px; height:48px; display:flex; align-items:center; justify-content:space-between;">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:18px;">🏈</span>
-        <span style="font-weight:600; font-size:14px; color:#1D1D1F; letter-spacing:-0.02em;">CFB Sentiment</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:24px; font-size:14px;">
-        <a href="/" style="color:#6E6E73; text-decoration:none;" onmouseover="this.style.color='#1D1D1F'" onmouseout="this.style.color='#6E6E73'">Rankings</a>
-        <a href="/chat" style="font-weight:600; color:#0071E3; text-decoration:none;">Chat</a>
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="wordmark">CFB Sentiment</span>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Rankings</a>
+        <a href="/chat" class="nav-link active">Chat</a>
       </div>
     </div>
   </nav>
 
-  <!-- Main layout -->
-  <div style="flex:1; display:flex; overflow:hidden; max-width:1100px; margin:0 auto; width:100%; padding:0 20px; gap:16px;">
+  <div class="layout">
 
-    <!-- Sidebar (desktop only) -->
-    <aside class="sidebar" id="sidebar" style="display:none;">
+    <!-- Sidebar (desktop) -->
+    <aside class="sidebar" id="sidebar">
 
       <div class="sidebar-card">
-        <div class="sidebar-label">🔴 Most Overrated</div>
+        <div class="sidebar-heading" style="color: #C0000D;">Most Overrated</div>
         {% for r in overrated %}
         <div class="team-chip" @click="sendSuggestion('Why is {{ r.school }} overrated and what are the betting implications?')">
           <div class="name">{{ r.school }}</div>
-          <div class="diverg" style="color:#FF3B30;">+{{ "%.1f" | format(r.divergence_score) }} divergence</div>
+          <div class="diverg" style="color: #FF3B30;">+{{ "%.1f" | format(r.divergence_score) }}</div>
         </div>
         {% endfor %}
         {% if not overrated %}
-        <div style="font-size:12px; color:#8E8E93;">No data yet</div>
+        <div style="font-size: 12px; color: #8E8E93;">No data yet</div>
         {% endif %}
       </div>
 
       <div class="sidebar-card">
-        <div class="sidebar-label">🟢 Most Underrated</div>
+        <div class="sidebar-heading" style="color: #187B34;">Most Underrated</div>
         {% for r in underrated %}
         <div class="team-chip" @click="sendSuggestion('Why is {{ r.school }} underrated and is it a value play?')">
           <div class="name">{{ r.school }}</div>
-          <div class="diverg" style="color:#34C759;">{{ "%.1f" | format(r.divergence_score) }} divergence</div>
+          <div class="diverg" style="color: #34C759;">{{ "%.1f" | format(r.divergence_score) }}</div>
         </div>
         {% endfor %}
         {% if not underrated %}
-        <div style="font-size:12px; color:#8E8E93;">No data yet</div>
+        <div style="font-size: 12px; color: #8E8E93;">No data yet</div>
         {% endif %}
       </div>
 
       <div class="sidebar-card">
-        <div class="sidebar-label">💡 Suggested Questions</div>
+        <div class="sidebar-heading" style="color: #86868B;">Suggested Questions</div>
         {% for q in [
           "Which SEC teams have the biggest sentiment gap?",
           "Which ranked teams are most overrated right now?",
@@ -315,20 +350,18 @@
     <!-- Chat -->
     <div class="chat-wrap">
 
-      <!-- Messages -->
       <div class="chat-messages" x-ref="chatbox">
 
         <!-- Welcome -->
         <template x-if="messages.length === 0">
           <div class="welcome">
-            <div style="font-size:48px; margin-bottom:12px;">🏈</div>
-            <div style="font-size:22px; font-weight:700; color:#1D1D1F; letter-spacing:-0.03em; margin-bottom:6px;">CFB Analyst</div>
-            <div style="font-size:14px; color:#6E6E73; max-width:340px; line-height:1.5;">
+            <div class="welcome-title">CFB Analyst</div>
+            <div class="welcome-sub">
               Ask anything about sentiment rankings — overrated teams, value plays, betting implications, or team comparisons.
             </div>
             {% if not has_api_key %}
             <div class="api-warn">
-              ⚠️ Set <code style="font-family:ui-monospace,monospace; background:rgba(0,0,0,0.08); padding:1px 4px; border-radius:3px;">ANTHROPIC_API_KEY</code> in the Render dashboard to enable chat.
+              Set <code style="font-family: ui-monospace, monospace; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 3px;">ANTHROPIC_API_KEY</code> in the Render dashboard to enable chat.
             </div>
             {% endif %}
             <div class="mobile-chips">
@@ -341,7 +374,7 @@
         </template>
 
         <!-- Messages -->
-        <div style="padding-top:8px;">
+        <div style="padding-top: 8px;">
           <template x-for="(msg, i) in messages" :key="i">
             <div>
               <template x-if="msg.role==='assistant'">
@@ -360,12 +393,12 @@
             </div>
           </template>
 
-          <!-- Typing -->
-          <div x-show="loading" style="margin-bottom:6px;">
+          <!-- Typing indicator -->
+          <div x-show="loading" style="margin-bottom: 6px;">
             <div class="ai-label">CFB Analyst</div>
             <div class="bubble-row ai">
-              <div class="bubble-ai" style="padding:12px 16px;">
-                <div style="display:flex; gap:5px; align-items:center;">
+              <div class="bubble-ai" style="padding: 13px 16px;">
+                <div style="display: flex; gap: 5px; align-items: center;">
                   <div class="dot"></div>
                   <div class="dot"></div>
                   <div class="dot"></div>
@@ -377,16 +410,16 @@
 
       </div>
 
-      <!-- Input -->
+      <!-- Input bar -->
       <div class="input-bar">
         <textarea
           x-model="input"
           x-ref="inputbox"
           @keydown.enter.prevent="if (!$event.shiftKey) send()"
-          placeholder="Ask about a team, matchup, or betting angle…"
+          placeholder="Ask about a team, matchup, or betting angle..."
           rows="1"
           :disabled="loading"
-          class="chat-textarea"
+          class="chat-input"
           @input="autoResize($event)"
         ></textarea>
         <button
@@ -396,16 +429,10 @@
           title="Send"
         >↑</button>
       </div>
-      <div class="hint">Return to send · Shift+Return for new line</div>
+      <div class="hint">Return to send &nbsp;&middot;&nbsp; Shift+Return for new line</div>
 
     </div>
   </div>
-
-  <!-- Show sidebar on lg screens -->
-  <style>
-    @media (min-width: 900px) { #sidebar { display: flex !important; } }
-    @media (max-width: 480px) { .chat-textarea { font-size: 16px; } }
-  </style>
 
   <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
   <script>
@@ -461,7 +488,7 @@
               }
             }
           } catch (e) {
-            this.messages[aiIdx].content = '⚠️ Connection error. Please try again.';
+            this.messages[aiIdx].content = 'Connection error. Please try again.';
           }
 
           this.loading = false;
