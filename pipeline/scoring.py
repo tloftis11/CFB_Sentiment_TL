@@ -6,6 +6,11 @@ Sentiment Score (0–100) = how the public perceives the team
 Divergence Score        = Sentiment – Quality
   Positive → Overrated by public (fade candidates)
   Negative → Underrated by public (value plays)
+
+When Google Trends data is absent (SKIP_TRENDS=true on CI), the Trends weight
+falls entirely to AP Poll + Recruiting via the normalised zero series, which
+naturally redistributes by min-max into equal values and drops out — so the
+remaining two components still drive the divergence ranking.
 """
 
 import numpy as np

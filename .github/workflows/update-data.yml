@@ -24,12 +24,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run pipeline (CFBD data, no Google Trends)
+      - name: Run pipeline (CFBD + Wikipedia + Reddit; Google Trends skipped on CI)
         env:
           CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
           CFB_SEASON_YEAR: '2026'
           TRENDS_POWER_ONLY: 'true'
           SKIP_TRENDS: 'true'    # Google Trends is blocked on datacenter IPs
+          # Wikipedia + Reddit run automatically; they fail gracefully if unreachable
         run: python main.py
 
       - name: Commit and push rankings.json

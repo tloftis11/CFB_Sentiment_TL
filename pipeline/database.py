@@ -18,6 +18,13 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+def _add_column_if_missing(conn: sqlite3.Connection, column: str, coltype: str):
+    try:
+        conn.execute(f"ALTER TABLE daily_rankings ADD COLUMN {column} {coltype}")
+    except Exception:
+        pass  # column already exists
+
+
 def init_db():
     with get_connection() as conn:
         conn.executescript("""
@@ -43,6 +50,8 @@ def init_db():
                 -- Sentiment inputs
                 ap_rank            INTEGER,
                 google_trends_score REAL,
+                wikipedia_score    REAL,
+                reddit_score       REAL,
                 recruiting_rank    INTEGER,
 
                 -- Composite scores (0-100)
@@ -63,6 +72,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_rankings_school ON daily_rankings(school);
             CREATE INDEX IF NOT EXISTS idx_rankings_div    ON daily_rankings(divergence_score);
         """)
+        # Migrate existing databases that predate the wikipedia/reddit columns
+        _add_column_if_missing(conn, "wikipedia_score", "REAL")
+        _add_column_if_missing(conn, "reddit_score",    "REAL")
     logger.info(f"Database initialized at {DB_PATH}")
 
 
