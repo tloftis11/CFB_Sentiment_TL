@@ -1,8 +1,10 @@
 # Environment
 .env
 
-# Database (local only — Render uses persistent disk)
-data/
+# SQLite database (local only — Render reads from rankings.json instead)
+data/*.db
+data/*.db-shm
+data/*.db-wal
 
 # Python
 __pycache__/

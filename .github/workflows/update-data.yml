@@ -1,0 +1,42 @@
+name: Daily CFB Rankings Update
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 6 AM ET (10 AM UTC) every day
+  workflow_dispatch:         # allow manual trigger from GitHub UI
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # needed to commit rankings.json back to the repo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline (CFBD data, no Google Trends)
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          CFB_SEASON_YEAR: '2026'
+          TRENDS_POWER_ONLY: 'true'
+          SKIP_TRENDS: 'true'    # Google Trends is blocked on datacenter IPs
+        run: python main.py
+
+      - name: Commit and push rankings.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/rankings.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "data: update CFB rankings $(date +'%Y-%m-%d')"
+          git push

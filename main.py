@@ -11,10 +11,12 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
 from datetime import date
+from pathlib import Path
 
 from dotenv import load_dotenv
 from tabulate import tabulate
@@ -47,6 +49,9 @@ logger = logging.getLogger(__name__)
 CFBD_API_KEY   = os.getenv("CFBD_API_KEY", "")
 SEASON_YEAR    = int(os.getenv("CFB_SEASON_YEAR", date.today().year))
 POWER_ONLY     = os.getenv("TRENDS_POWER_ONLY", "true").lower() == "true"
+SKIP_TRENDS    = os.getenv("SKIP_TRENDS", "false").lower() == "true"
+
+JSON_PATH = Path(__file__).parent / "data" / "rankings.json"
 
 
 # ---------------------------------------------------------------------------
@@ -135,12 +140,10 @@ def run_pipeline():
     logger.info(f"=== CFB Sentiment Pipeline  |  {date.today()}  |  Season {SEASON_YEAR} ===")
 
     if not CFBD_API_KEY:
-        logger.error(
-            "CFBD_API_KEY not set.\n"
-            "  1. Register free at https://collegefootballdata.com/key\n"
-            "  2. Copy .env.example → .env and add your key"
+        raise RuntimeError(
+            "CFBD_API_KEY not set. "
+            "Register free at https://collegefootballdata.com/key and add it to .env"
         )
-        sys.exit(1)
 
     init_db()
 
@@ -176,15 +179,19 @@ def run_pipeline():
     logger.info(f"  {games_played} teams with game results")
 
     # -- Google Trends --------------------------------------------------------
-    if POWER_ONLY:
+    if SKIP_TRENDS:
+        logger.info("Skipping Google Trends (SKIP_TRENDS=true — CI mode)")
+        gt_scores = {}
+    elif POWER_ONLY:
         trend_schools = [s for s in all_schools if conf_map.get(s) in POWER_CONFERENCES]
         logger.info(f"Fetching Google Trends for {len(trend_schools)} Power/top-G5 teams...")
+        gt_scores = trends.get_scores(trend_schools)
+        logger.info(f"  Trends fetched for {len(gt_scores)} teams")
     else:
         trend_schools = all_schools
         logger.info(f"Fetching Google Trends for all {len(trend_schools)} FBS teams (slow)...")
-
-    gt_scores = trends.get_scores(trend_schools)
-    logger.info(f"  Trends fetched for {len(gt_scores)} teams")
+        gt_scores = trends.get_scores(trend_schools)
+        logger.info(f"  Trends fetched for {len(gt_scores)} teams")
 
     # -- Assemble & Score -----------------------------------------------------
     logger.info("Assembling and scoring...")
@@ -229,9 +236,26 @@ def run_pipeline():
 
     logger.info("Pipeline complete.")
 
+    # -- Export JSON (committed to repo so Render can read it) ----------------
+    export_rankings_json()
+
     # -- Display --------------------------------------------------------------
     rows = get_latest_rankings()
     display_rankings(rows)
+
+
+def export_rankings_json():
+    """Write latest rankings to data/rankings.json for Render to consume."""
+    rows = get_latest_rankings()
+    out = {
+        "last_updated": rows[0]["run_date"] if rows else str(date.today()),
+        "has_trends": any(r.get("google_trends_score", 0) for r in rows),
+        "teams": rows,
+    }
+    JSON_PATH.parent.mkdir(exist_ok=True)
+    with open(JSON_PATH, "w") as f:
+        json.dump(out, f, indent=2, default=str)
+    logger.info(f"Exported {len(rows)} teams → {JSON_PATH}")
 
 
 # ---------------------------------------------------------------------------
