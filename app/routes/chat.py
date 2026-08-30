@@ -63,13 +63,16 @@ async def chat_page(request: Request):
     underrated = sorted(rows, key=lambda x: x["divergence_score"] or 0)[:5]
     has_api_key = bool(ANTHROPIC_API_KEY)
 
-    return templates.TemplateResponse("chat.html", {
-        "request": request,
-        "overrated": overrated,
-        "underrated": underrated,
-        "has_api_key": has_api_key,
-        "total_teams": len(rows),
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="chat.html",
+        context={
+            "overrated": overrated,
+            "underrated": underrated,
+            "has_api_key": has_api_key,
+            "total_teams": len(rows),
+        },
+    )
 
 
 @router.post("/api/chat")

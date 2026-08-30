@@ -22,15 +22,18 @@ async def rankings_page(
     all_rows = get_latest_rankings()
     conferences = sorted({r["conference"] for r in all_rows if r.get("conference")})
 
-    return templates.TemplateResponse("rankings.html", {
-        "request": request,
-        "rows": rows,
-        "conferences": conferences,
-        "selected_conf": conf or "",
-        "selected_label": label or "",
-        "last_updated": last_updated,
-        "total_teams": len(all_rows),
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="rankings.html",
+        context={
+            "rows": rows,
+            "conferences": conferences,
+            "selected_conf": conf or "",
+            "selected_label": label or "",
+            "last_updated": last_updated,
+            "total_teams": len(all_rows),
+        },
+    )
 
 
 @router.get("/api/rankings")
