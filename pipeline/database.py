@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import logging
 from datetime import date
@@ -5,7 +6,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(__file__).parent.parent / "data" / "cfb_sentiment.db"
+# On Render, set DATA_DIR=/data (persistent disk). Locally defaults to data/ subdir.
+_data_dir = Path(os.getenv("DATA_DIR", str(Path(__file__).parent.parent / "data")))
+DB_PATH = _data_dir / "cfb_sentiment.db"
 
 
 def get_connection() -> sqlite3.Connection:

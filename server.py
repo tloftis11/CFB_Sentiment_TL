@@ -10,6 +10,9 @@ Render:
 
 import logging
 import os
+import threading
+import time
+from datetime import datetime, timedelta
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -22,6 +25,7 @@ logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 from pipeline.database import init_db
 from app.routes.rankings import router as rankings_router
@@ -42,10 +46,37 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 app.include_router(rankings_router)
 app.include_router(chat_router)
 
+PIPELINE_RUN_HOUR = int(os.getenv("PIPELINE_RUN_HOUR", "6"))
+
+
+def _pipeline_loop():
+    """Run pipeline on startup then daily at PIPELINE_RUN_HOUR (UTC)."""
+    from main import run_pipeline
+    try:
+        logger.info("Running initial pipeline on startup...")
+        run_pipeline()
+    except Exception as e:
+        logger.error(f"Initial pipeline run failed: {e}")
+
+    while True:
+        now = datetime.utcnow()
+        next_run = now.replace(hour=PIPELINE_RUN_HOUR, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+        sleep_secs = (next_run - now).total_seconds()
+        logger.info(f"Next pipeline run in {sleep_secs/3600:.1f}h at {next_run} UTC")
+        time.sleep(sleep_secs)
+        try:
+            run_pipeline()
+        except Exception as e:
+            logger.error(f"Scheduled pipeline run failed: {e}")
+
 
 @app.on_event("startup")
 async def startup():
     init_db()
+    t = threading.Thread(target=_pipeline_loop, daemon=True, name="pipeline")
+    t.start()
 
 
 @app.get("/health")

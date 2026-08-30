@@ -23,13 +23,13 @@ def build_system_prompt() -> str:
     lines = []
     for r in rows:
         ap = f"AP#{r['ap_rank']}" if r.get("ap_rank") else "Unranked"
+        win_pct = f"{r['win_pct']:.2f}" if r.get("win_pct") is not None else "N/A"
         lines.append(
             f"{r['school']} ({r.get('conference','')}) | "
             f"Quality={r['quality_score']:.1f} Sentiment={r['sentiment_score']:.1f} "
             f"Divergence={r['divergence_score']:+.1f} [{r['divergence_label']}] | "
             f"{ap} | SP+={r.get('sp_rating') or 'N/A'} | "
-            f"W%={r['win_pct']:.2f if r.get('win_pct') is not None else 'N/A'} "
-            f"({r.get('games_played', 0)} games)"
+            f"W%={win_pct} ({r.get('games_played', 0)} games)"
         )
     rankings_text = "\n".join(lines)
 
