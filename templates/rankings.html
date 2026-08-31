@@ -144,6 +144,62 @@
     }
     .clear-btn:hover { background: rgba(0,113,227,0.14); }
 
+    /* Segment control */
+    .seg-ctrl {
+      display: inline-flex;
+      background: rgba(0,0,0,0.05);
+      border-radius: 8px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .seg-ctrl button {
+      border: none;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      background: transparent;
+      color: #6E6E73;
+    }
+    .seg-ctrl button.active {
+      background: #fff;
+      color: #1D1D1F;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    /* Methodology card */
+    .method-card { padding: 28px 32px; }
+    .method-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px 32px;
+      margin-top: 20px;
+    }
+    @media (max-width: 600px) { .method-grid { grid-template-columns: 1fr; } }
+    .method-block-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #86868B;
+      margin-bottom: 10px;
+    }
+    .method-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      gap: 12px;
+    }
+    .method-row:last-child { border-bottom: none; }
+    .method-label { color: #1D1D1F; font-weight: 500; }
+    .method-val   { color: #86868B; font-size: 12px; white-space: nowrap; }
+
     /* Table */
     .table-wrap { overflow: hidden; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.04); }
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; }
@@ -330,6 +386,10 @@
 
     <!-- Filters -->
     <div class="filter-bar" style="margin-bottom: 12px;">
+      <div class="seg-ctrl">
+        <button :class="apFilter==='top25'?'active':''" @click="apFilter='top25'">AP Top 25</button>
+        <button :class="apFilter===''?'active':''" @click="apFilter=''">All FBS</button>
+      </div>
       <input
         x-model="search"
         type="search"
@@ -350,7 +410,7 @@
         <option value="Underrated">Underrated</option>
         <option value="Strongly Underrated">Strongly Underrated</option>
       </select>
-      <button class="clear-btn" @click="search=''; confFilter=''; labelFilter=''" x-show="search || confFilter || labelFilter">Clear</button>
+      <button class="clear-btn" @click="search=''; confFilter=''; labelFilter=''; apFilter=''" x-show="search || confFilter || labelFilter || apFilter!==''">Clear</button>
       <span style="margin-left: auto; font-size: 13px; color: #86868B;" x-text="`${filtered.length} teams`"></span>
     </div>
 
@@ -410,9 +470,9 @@
 
     <!-- Legend -->
     <div class="legend" style="margin-top: 14px;">
-      <span><span class="legend-dot" style="background: #FF3B30;"></span>Overrated — public perception exceeds quality (fade)</span>
-      <span><span class="legend-dot" style="background: #34C759;"></span>Underrated — quality exceeds public perception (value)</span>
-      <span style="color: #AEAEB2;">Quality = SP+ + Win% &nbsp;&middot;&nbsp; Sentiment = AP Poll + Trends + Recruiting</span>
+      <span><span class="legend-dot" style="background: #FF3B30;"></span>Overrated — public attention exceeds quality (fade)</span>
+      <span><span class="legend-dot" style="background: #34C759;"></span>Underrated — quality exceeds public attention (value)</span>
+      <span style="color: #AEAEB2;">Labels are percentile-based within the full FBS field</span>
     </div>
 
     <!-- Chat CTA -->
@@ -422,6 +482,77 @@
         <div style="font-size: 14px; color: #6E6E73;">Ask about teams, matchups, and betting implications.</div>
       </div>
       <a href="/chat" class="cta-link">Open Chat</a>
+    </div>
+
+    <!-- Methodology -->
+    <div class="card method-card" style="margin-top: 24px;">
+      <div style="font-size: 16px; font-weight: 700; letter-spacing: -0.03em; color: #1D1D1F; margin-bottom: 4px;">How scores are calculated</div>
+      <div style="font-size: 13px; color: #86868B; line-height: 1.5;">Each team gets a Quality score and a Sentiment score (both 0–100). Divergence is the gap between where a team ranks in public attention vs. where it ranks in on-field quality.</div>
+
+      <div class="method-grid">
+
+        <div>
+          <div class="method-block-title">Quality Score (0–100)</div>
+          <div class="method-row">
+            <span class="method-label">SP+ Rating</span>
+            <span class="method-val">100% &mdash; only input</span>
+          </div>
+          <div style="margin-top: 10px; font-size: 12px; color: #AEAEB2; line-height: 1.5;">SP+ is ESPN's predictive efficiency metric. Higher = objectively better team. Normalised across all 138 FBS teams so the best team scores 100 and the worst scores 0.</div>
+        </div>
+
+        <div>
+          <div class="method-block-title">Sentiment Score (0–100)</div>
+          <div class="method-row">
+            <span class="method-label" style="color: #6E6E73; font-size: 12px; font-style: italic;">AP Top 25 teams</span>
+            <span class="method-val"></span>
+          </div>
+          <div class="method-row">
+            <span class="method-label">AP Poll rank</span>
+            <span class="method-val">40%</span>
+          </div>
+          <div class="method-row">
+            <span class="method-label">Google Trends</span>
+            <span class="method-val">35%</span>
+          </div>
+          <div class="method-row">
+            <span class="method-label">Recruiting rank</span>
+            <span class="method-val">25%</span>
+          </div>
+          <div class="method-row" style="margin-top: 6px;">
+            <span class="method-label" style="color: #6E6E73; font-size: 12px; font-style: italic;">Unranked teams</span>
+            <span class="method-val"></span>
+          </div>
+          <div class="method-row">
+            <span class="method-label">Google Trends</span>
+            <span class="method-val">58%</span>
+          </div>
+          <div class="method-row">
+            <span class="method-label">Recruiting rank</span>
+            <span class="method-val">42%</span>
+          </div>
+          <div style="margin-top: 10px; font-size: 12px; color: #AEAEB2; line-height: 1.5;">Unranked teams skip the AP component so the two groups share the same 0–100 scale. AP is normalised within the 25-team pool (rank 1 = 100, rank 25 = 0).</div>
+        </div>
+
+        <div>
+          <div class="method-block-title">Divergence Score</div>
+          <div class="method-row">
+            <span class="method-label">Formula</span>
+            <span class="method-val">Sentiment %ile &minus; Quality %ile</span>
+          </div>
+          <div style="margin-top: 10px; font-size: 12px; color: #AEAEB2; line-height: 1.5;">Both scores are converted to percentile ranks across all 138 FBS teams before subtracting. A score of +30 means a team's sentiment rank is 30 percentile points above its quality rank.</div>
+        </div>
+
+        <div>
+          <div class="method-block-title">Labels</div>
+          <div class="method-row"><span class="method-label" style="color: #C0000D;">Strongly Overrated</span><span class="method-val">Top 10% of divergence</span></div>
+          <div class="method-row"><span class="method-label" style="color: #9E5600;">Overrated</span><span class="method-val">75th–90th percentile</span></div>
+          <div class="method-row"><span class="method-label" style="color: #6E6E73;">Fairly Rated</span><span class="method-val">25th–75th percentile</span></div>
+          <div class="method-row"><span class="method-label" style="color: #0050A0;">Underrated</span><span class="method-val">10th–25th percentile</span></div>
+          <div class="method-row"><span class="method-label" style="color: #187B34;">Strongly Underrated</span><span class="method-val">Bottom 10% of divergence</span></div>
+          <div style="margin-top: 10px; font-size: 12px; color: #AEAEB2; line-height: 1.5;">Percentile cutoffs are recalculated each run so the distribution stays balanced regardless of season or data availability.</div>
+        </div>
+
+      </div>
     </div>
 
   </main>
@@ -436,6 +567,7 @@
         search: '',
         confFilter: '',
         labelFilter: '',
+        apFilter: 'top25',
         sortKey: 'divergence_score',
         sortDir: -1,
 
@@ -443,6 +575,7 @@
 
         get filtered() {
           let out = this.rows.filter(r => {
+            if (this.apFilter === 'top25' && !r.ap_rank) return false;
             if (this.search && !r.school.toLowerCase().includes(this.search.toLowerCase())) return false;
             if (this.confFilter && r.conference !== this.confFilter) return false;
             if (this.labelFilter && r.divergence_label !== this.labelFilter) return false;
