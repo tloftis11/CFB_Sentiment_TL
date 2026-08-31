@@ -30,16 +30,20 @@ SENTIMENT_WEIGHTS = {
     "recruiting_normalized":   0.25,  # Blue-chip hype; public buys into recruiting
 }
 
-# --- Divergence labels -------------------------------------------------------
+# --- Divergence label percentile cutoffs -------------------------------------
 
-# Thresholds are on the raw divergence scale (Sentiment – Quality, both 0–100)
-DIVERGENCE_LABELS = [
-    (20,  "Strongly Overrated"),
-    (10,  "Overrated"),
-    (-10, "Fairly Rated"),
-    (-20, "Underrated"),
-]
-# Anything below -20 falls through to "Strongly Underrated"
+# Labels are assigned by where a team's divergence falls within the current
+# field's distribution — not by fixed absolute thresholds.  This ensures the
+# output is always balanced regardless of season, missing data, or score skew.
+#
+# Approximate team counts for a 138-team FBS field:
+#   Strongly Overrated  : top 10%  → ~14 teams
+#   Overrated           : 75–90th  → ~21 teams
+#   Fairly Rated        : 25–75th  → ~69 teams
+#   Underrated          : 10–25th  → ~21 teams
+#   Strongly Underrated : bot 10%  → ~14 teams
+
+_LABEL_PCTS = (0.10, 0.25, 0.75, 0.90)   # (p10, p25, p75, p90)
 
 
 # --- Helper functions --------------------------------------------------------
@@ -72,11 +76,18 @@ def _recruiting_to_score(rank) -> float:
     return max(0.0, (51 - min(rank, 51)) / 50 * 100)
 
 
-def _label(score: float) -> str:
-    for threshold, label in DIVERGENCE_LABELS:
-        if score >= threshold:
-            return label
-    return "Strongly Underrated"
+def _assign_labels(series: pd.Series) -> pd.Series:
+    """Assign divergence labels using quantile cutoffs of the distribution."""
+    p10, p25, p75, p90 = [series.quantile(q) for q in _LABEL_PCTS]
+
+    def _label(s):
+        if s >= p90: return "Strongly Overrated"
+        if s >= p75: return "Overrated"
+        if s >  p25: return "Fairly Rated"
+        if s >  p10: return "Underrated"
+        return "Strongly Underrated"
+
+    return series.apply(_label)
 
 
 # --- Main scoring function ---------------------------------------------------
@@ -133,9 +144,21 @@ def compute_rankings(teams_data: list[dict], run_date: date = None) -> pd.DataFr
     )
 
     # ---- Divergence ----------------------------------------------------------
+    # Convert both scores to percentile ranks (0–100) before subtracting.
+    # This eliminates the AP Poll sparsity bias: only 25 teams are ranked in
+    # the poll, so raw sentiment scores cluster near zero for the other ~113
+    # teams, making almost everyone appear "underrated." By comparing WHERE
+    # each team ranks in sentiment vs WHERE it ranks in quality, the divergence
+    # distribution is naturally centered at zero.
 
-    df["divergence_score"] = df["sentiment_score"] - df["quality_score"]
-    df["divergence_label"] = df["divergence_score"].apply(_label)
+    # method='min': tied teams get the lowest rank in their group.
+    # This prevents zero-sentiment teams (tied at minimum) from receiving an
+    # inflated middle rank and falsely appearing overrated.
+    df["quality_pct"]   = df["quality_score"].rank(pct=True, ascending=True, method="min") * 100
+    df["sentiment_pct"] = df["sentiment_score"].rank(pct=True, ascending=True, method="min") * 100
+    df["divergence_score"] = df["sentiment_pct"] - df["quality_pct"]
+
+    df["divergence_label"] = _assign_labels(df["divergence_score"])
 
     # ---- Rank positions ------------------------------------------------------
 

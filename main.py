@@ -270,6 +270,7 @@ def main():
     parser.add_argument("--conf",       type=str,            help="Filter by conference name")
     parser.add_argument("--team",       type=str,            help="Show trend history for a team")
     parser.add_argument("--dates",      action="store_true", help="List available dates in DB")
+    parser.add_argument("--rescore",    action="store_true", help="Re-score stored data with current algorithm (no API calls)")
     args = parser.parse_args()
 
     init_db()
@@ -277,6 +278,52 @@ def main():
     if args.dates:
         dates = get_available_dates()
         print("Available dates:", dates if dates else "None (run pipeline first)")
+        return
+
+    if args.rescore:
+        stored = get_latest_rankings()
+        if not stored:
+            print("No data in database. Run the full pipeline first.")
+            return
+        teams_data = [
+            {
+                "school":              r["school"],
+                "conference":          r["conference"],
+                "sp_rating":           r["sp_rating"],
+                "win_pct":             r["win_pct"],
+                "games_played":        r["games_played"],
+                "ap_rank":             r["ap_rank"],
+                "google_trends_score": r["google_trends_score"],
+                "recruiting_rank":     r["recruiting_rank"],
+            }
+            for r in stored
+        ]
+        run_date = date.fromisoformat(stored[0]["run_date"])
+        logger.info(f"Re-scoring {len(teams_data)} teams from {run_date} data...")
+        df = compute_rankings(teams_data, run_date=run_date)
+        for _, row in df.iterrows():
+            upsert_ranking({
+                "school":               row["school"],
+                "conference":           row["conference"],
+                "run_date":             row["run_date"],
+                "sp_rating":            row.get("sp_rating"),
+                "win_pct":              row.get("win_pct"),
+                "games_played":         int(row.get("games_played", 0)),
+                "ap_rank":              int(row["ap_rank"]) if row.get("ap_rank") and str(row["ap_rank"]) != "nan" else None,
+                "google_trends_score":  round(float(row.get("google_trends_score", 0)), 3),
+                "recruiting_rank":      int(row["recruiting_rank"]) if row.get("recruiting_rank") and str(row["recruiting_rank"]) != "nan" else None,
+                "quality_score":        round(float(row["quality_score"]), 2),
+                "sentiment_score":      round(float(row["sentiment_score"]), 2),
+                "divergence_score":     round(float(row["divergence_score"]), 2),
+                "divergence_label":     row["divergence_label"],
+                "quality_rank":         int(row["quality_rank"]),
+                "sentiment_rank":       int(row["sentiment_rank"]),
+                "divergence_rank":      int(row["divergence_rank"]),
+            })
+        logger.info("Re-score complete. Exporting JSON...")
+        export_rankings_json()
+        rows = get_latest_rankings()
+        display_rankings(rows)
         return
 
     if args.team:
