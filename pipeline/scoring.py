@@ -20,8 +20,7 @@ from datetime import date
 # --- Weights ----------------------------------------------------------------
 
 QUALITY_WEIGHTS = {
-    "sp_normalized":       0.65,   # SP+ is the best available objective metric
-    "win_pct_normalized":  0.35,   # Actual W/L record (schedule-adjusted via SP+)
+    "sp_normalized": 1.00,  # SP+ is the only quality input; win% is noise preseason
 }
 
 SENTIMENT_WEIGHTS = {
@@ -116,15 +115,8 @@ def compute_rankings(teams_data: list[dict], run_date: date = None) -> pd.DataFr
 
     # ---- Quality Score -------------------------------------------------------
 
-    df["sp_normalized"]      = _minmax(df["sp_rating"])
-    # Win pct: teams with no games played get neutral 50
-    df["win_pct_filled"]     = df["win_pct"].fillna(0.5)
-    df["win_pct_normalized"] = _minmax(df["win_pct_filled"])
-
-    df["quality_score"] = (
-        df["sp_normalized"]      * QUALITY_WEIGHTS["sp_normalized"] +
-        df["win_pct_normalized"] * QUALITY_WEIGHTS["win_pct_normalized"]
-    )
+    df["sp_normalized"]  = _minmax(df["sp_rating"])
+    df["quality_score"]  = df["sp_normalized"] * QUALITY_WEIGHTS["sp_normalized"]
 
     # ---- Sentiment Score -----------------------------------------------------
 
