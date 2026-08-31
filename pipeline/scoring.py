@@ -1,16 +1,18 @@
 """
 Scoring engine: converts raw inputs into Quality, Sentiment, and Divergence scores.
 
-Quality Score  (0–100) = how good the team actually is
-Sentiment Score (0–100) = how the public perceives the team
-Divergence Score        = Sentiment – Quality
-  Positive → Overrated by public (fade candidates)
-  Negative → Underrated by public (value plays)
+Quality Score  (0–100) = SP+ rating, min-max normalised across all FBS teams
+Sentiment Score (0–100) = public perception, computed in two tiers:
+  • AP top-25 teams : AP (40%) + Trends (35%) + Recruiting (25%)
+  • Unranked teams  : Trends (58.3%) + Recruiting (41.7%)
+  Both groups share the same 0–100 scale.  AP is normalised within the ranked
+  pool only (rank 1 = 100, rank 25 = 0) so being #25 is meaningfully different
+  from being unranked — not nearly the same.
 
-When Google Trends data is absent (SKIP_TRENDS=true on CI), the Trends weight
-falls entirely to AP Poll + Recruiting via the normalised zero series, which
-naturally redistributes by min-max into equal values and drops out — so the
-remaining two components still drive the divergence ranking.
+Divergence Score = sentiment percentile − quality percentile (both 0–100).
+  Positive → Overrated by public (more sentiment attention than quality warrants)
+  Negative → Underrated by public (higher quality than public attention)
+  Labels are assigned via quantile cutoffs so the distribution stays balanced.
 """
 
 import numpy as np
@@ -23,11 +25,11 @@ QUALITY_WEIGHTS = {
     "sp_normalized": 1.00,  # SP+ is the only quality input; win% is noise preseason
 }
 
-SENTIMENT_WEIGHTS = {
-    "ap_rank_normalized":      0.40,  # Poll perception = strongest public signal
-    "google_trends_normalized": 0.35, # National interest / search attention
-    "recruiting_normalized":   0.25,  # Blue-chip hype; public buys into recruiting
-}
+# Sentiment weights — AP-ranked teams use all three; unranked use Trends + Recruiting
+# reweighted to 100% so both groups stay on the same 0-100 scale.
+_W_AP, _W_GT, _W_REC = 0.40, 0.35, 0.25
+_W_GT_ONLY  = _W_GT  / (_W_GT + _W_REC)   # ≈ 0.583
+_W_REC_ONLY = _W_REC / (_W_GT + _W_REC)   # ≈ 0.417
 
 # --- Divergence label percentile cutoffs -------------------------------------
 
@@ -55,13 +57,6 @@ def _minmax(s: pd.Series, invert: bool = False) -> pd.Series:
     out = (s - mn) / (mx - mn) * 100.0
     return 100.0 - out if invert else out
 
-
-def _ap_to_score(rank) -> float:
-    """AP rank 1 → 100, rank 25 → 4, unranked → 0."""
-    if rank is None or (isinstance(rank, float) and np.isnan(rank)):
-        return 0.0
-    rank = int(rank)
-    return max(0.0, (26 - rank) / 25 * 100)
 
 
 def _recruiting_to_score(rank) -> float:
@@ -119,20 +114,34 @@ def compute_rankings(teams_data: list[dict], run_date: date = None) -> pd.DataFr
     df["quality_score"]  = df["sp_normalized"] * QUALITY_WEIGHTS["sp_normalized"]
 
     # ---- Sentiment Score -----------------------------------------------------
+    # AP: normalised within the ranked pool only (rank 1=100, rank 25=0).
+    # Unranked teams receive NaN here and skip the AP component entirely.
+    ap_mask = df["ap_rank"].notna()
+    df["ap_rank_normalized"] = np.nan
+    if ap_mask.sum() > 0:
+        ranked_ap = df.loc[ap_mask, "ap_rank"].astype(float)
+        # Invert: lower rank number = better; _minmax on negative values maps
+        # rank 1 → 100 and rank 25 → 0 within the ranked pool.
+        df.loc[ap_mask, "ap_rank_normalized"] = _minmax(-ranked_ap).values
 
-    df["ap_raw_score"]         = df["ap_rank"].apply(_ap_to_score)
-    df["ap_rank_normalized"]   = _minmax(df["ap_raw_score"])
+    df["gt_filled"]                = df["google_trends_score"].fillna(0.0)
+    df["google_trends_normalized"] = _minmax(df["gt_filled"])
 
-    df["gt_filled"]                  = df["google_trends_score"].fillna(0.0)
-    df["google_trends_normalized"]   = _minmax(df["gt_filled"])
+    df["rec_raw_score"]            = df["recruiting_rank"].apply(_recruiting_to_score)
+    df["recruiting_normalized"]    = _minmax(df["rec_raw_score"])
 
-    df["rec_raw_score"]        = df["recruiting_rank"].apply(_recruiting_to_score)
-    df["recruiting_normalized"] = _minmax(df["rec_raw_score"])
-
-    df["sentiment_score"] = (
-        df["ap_rank_normalized"]      * SENTIMENT_WEIGHTS["ap_rank_normalized"] +
-        df["google_trends_normalized"] * SENTIMENT_WEIGHTS["google_trends_normalized"] +
-        df["recruiting_normalized"]    * SENTIMENT_WEIGHTS["recruiting_normalized"]
+    # Ranked teams: AP (40%) + Trends (35%) + Recruiting (25%)
+    # Unranked teams: Trends (58.3%) + Recruiting (41.7%) — same ratio, rescaled to 100%
+    df["sentiment_score"] = df.apply(
+        lambda r: (
+            r["ap_rank_normalized"] * _W_AP
+            + r["google_trends_normalized"] * _W_GT
+            + r["recruiting_normalized"] * _W_REC
+        ) if pd.notna(r["ap_rank_normalized"]) else (
+            r["google_trends_normalized"] * _W_GT_ONLY
+            + r["recruiting_normalized"] * _W_REC_ONLY
+        ),
+        axis=1,
     )
 
     # ---- Divergence ----------------------------------------------------------
